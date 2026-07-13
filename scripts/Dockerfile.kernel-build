@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Dockerfile.kernel-build - Kernel build environment with dependencies
+#                           resolved dynamically from a real kernel source
+#                           tree's debian/control, instead of a
+#                           hand-maintained control.<variant> snapshot.
+#
+# Based on docker.io/library/ubuntu:resolute, with public.ecr.aws/ubuntu/ubuntu:resolute
+# as a fallback for when that tag isn't published under the primary registry.
+# Both are genuine multi-arch manifest lists (amd64, arm64, ppc64le, armv7,
+# riscv64, s390x), unlike ghcr.io/qualcomm-linux/pkg-builder:resolute, which
+# is arm64-only and falls back to full-system QEMU emulation on an amd64
+# host. A multi-arch manifest lets docker build/run pick the native manifest
+# for the host, so only the cross-compiler invocations run under
+# emulation-free cross toolchains. build-docker-image.sh probes which base
+# image is available and passes it via the BASE_IMAGE build arg below.
+#
+# Not built directly — use build-docker-image.sh, which first runs
+# `debian/rules clean` against a real kernel source tree to produce the
+# `control` and `extra-tools.txt` files this Dockerfile's build context
+# expects, then invokes `docker build` with this file.
+#
+# Build args:
+#   BASE_IMAGE   Base image reference to build FROM (must be a genuine
+#                multi-arch manifest list); resolved by build-docker-image.sh
+#   TARGET_ARCH  Target Debian architecture (e.g. arm64, amd64)
+#   CROSS        "true" for cross-compilation (host arch != TARGET_ARCH),
+#                "false" for a native build (default)
+
+ARG BASE_IMAGE=docker.io/library/ubuntu:resolute
+FROM ${BASE_IMAGE}
+
+ARG TARGET_ARCH
+ARG CROSS=false
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Base tools to run debian/rules (dh_testdir/dch/etc) and resolve build-dep
+# (dpkg-dev). Mirrors docker-pkg-build's Dockerfiles/base-packages.txt,
+# trimmed to what this kernel build needs.
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates dpkg-dev build-essential debhelper fakeroot devscripts && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Enable deb-src for build-dep
+RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+
+RUN if [ "${CROSS}" = "true" ]; then dpkg --add-architecture "${TARGET_ARCH}"; fi
+
+COPY extra-tools.txt /tmp/extra-tools.txt
+RUN apt-get update -qq && \
+    apt-get install -y $(cat /tmp/extra-tools.txt | tr '\n' ' ') && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Dynamically generated debian/control (from `debian/rules clean` against
+# the real kernel source tree, patched for :native host-tool deps when
+# cross-compiling) — not a hand-maintained snapshot.
+COPY control /tmp/control-dir/debian/control
+
+RUN apt-get update -qq && \
+    cd /tmp/control-dir && \
+    if [ "${CROSS}" = "true" ]; then \
+      apt-get build-dep -y --host-architecture "${TARGET_ARCH}" --build-profiles cross . && \
+      apt-get build-dep -y . ; \
+    else \
+      apt-get build-dep -y . ; \
+    fi && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/control-dir
+
+# Set default environment for build-kernel-deb.sh
+ENV SKIP_BUILD_DEP=1
