@@ -55,6 +55,19 @@ chmod +x ubuntu-qcom-kernel/scripts/build-docker-image.sh
 chmod +x qcom-dtb-metadata/build-dtb-image.sh
 ```
 
+### 4. Configure Proxy (First Time per Machine, if Needed)
+
+The first `docker-build-kernel.sh` run on a machine builds a local Docker image, which needs `apt-get` access to Ubuntu package mirrors. If this machine's network can't reach those mirrors directly, pass a proxy for that one build — it's only used while building the Docker image, never by the container itself or by later kernel builds on the same machine (the image is cached locally once built):
+
+```bash
+# Replace your-proxy-server:8080 with your actual proxy address
+HTTP_PROXY=http://your-proxy-server:8080 \
+HTTPS_PROXY=http://your-proxy-server:8080 \
+./ubuntu-qcom-kernel/scripts/docker-build-kernel.sh
+```
+
+This is a **one-time, per-machine** step.
+
 After completing the above, your workspace structure should look like:
 
 ```
@@ -127,6 +140,8 @@ Output packages: `./output/`
 | `VERSION_SUFFIX` | (none) | Optional version suffix for the kernel package (e.g., `+v1.0`, `+myuser1`). Pass `auto` to generate from git HEAD |
 | `DEBEMAIL` | `build-kernel-deb@localhost` | Email for changelog entries |
 | `DEBFULLNAME` | `build-kernel-deb.sh` | Full name for changelog entries |
+| `HTTP_PROXY` | (none) | HTTP proxy URL for Docker image build only (e.g., `http://your-proxy-server:8080`). Only needed on first run if your network cannot access Ubuntu package mirrors directly |
+| `HTTPS_PROXY` | (none) | HTTPS proxy URL for Docker image build only (e.g., `http://your-proxy-server:8080`). Only needed on first run if your network cannot access Ubuntu package mirrors directly |
 
 ---
 
@@ -257,6 +272,9 @@ sudo dpkg -i linux-modules-7.0.0-1006-qcom_7.0.0-1006.8_arm64.deb
 sudo dpkg -i linux-image-7.0.0-1006-qcom_7.0.0-1006.8_arm64.deb
 
 # Optional: kernel headers (for out-of-tree module development)
+# linux-headers-*-qcom depends on the arch-independent linux-qcom-headers-*
+# package, so install that first.
+sudo dpkg -i linux-qcom-headers-7.0.0-1006_7.0.0-1006.8_all.deb
 sudo dpkg -i linux-headers-7.0.0-1006-qcom_7.0.0-1006.8_arm64.deb
 ```
 

@@ -125,6 +125,9 @@ docker build \
   --build-arg "BASE_IMAGE=${BASE_IMAGE}" \
   --build-arg "TARGET_ARCH=${ARCH}" \
   --build-arg "CROSS=${CROSS_BUILD}" \
+  --build-arg "HTTP_PROXY=${HTTP_PROXY:-}" \
+  --build-arg "HTTPS_PROXY=${HTTPS_PROXY:-}" \
+  --build-arg "NO_PROXY=${NO_PROXY:-}" \
   -t "${IMAGE_TAG}" \
   "${CONTEXT_DIR}" \
   || die "docker build failed"

@@ -32,13 +32,20 @@ FROM ${BASE_IMAGE}
 
 ARG TARGET_ARCH
 ARG CROSS=false
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Base tools to run debian/rules (dh_testdir/dch/etc) and resolve build-dep
 # (dpkg-dev). Mirrors docker-pkg-build's Dockerfiles/base-packages.txt,
 # trimmed to what this kernel build needs.
-RUN apt-get update -qq && \
+#
+# Proxy vars are scoped to this RUN only (not ENV), so they won't leak
+# into containers started from the built image.
+RUN http_proxy="${HTTP_PROXY}" https_proxy="${HTTPS_PROXY}" no_proxy="${NO_PROXY}" \
+    apt-get update -qq && \
     apt-get install -y --no-install-recommends \
       ca-certificates dpkg-dev build-essential debhelper fakeroot devscripts && \
     apt-get clean && \
@@ -50,7 +57,8 @@ RUN sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.s
 RUN if [ "${CROSS}" = "true" ]; then dpkg --add-architecture "${TARGET_ARCH}"; fi
 
 COPY extra-tools.txt /tmp/extra-tools.txt
-RUN apt-get update -qq && \
+RUN http_proxy="${HTTP_PROXY}" https_proxy="${HTTPS_PROXY}" no_proxy="${NO_PROXY}" \
+    apt-get update -qq && \
     apt-get install -y $(cat /tmp/extra-tools.txt | tr '\n' ' ') && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -60,7 +68,8 @@ RUN apt-get update -qq && \
 # cross-compiling) — not a hand-maintained snapshot.
 COPY control /tmp/control-dir/debian/control
 
-RUN apt-get update -qq && \
+RUN http_proxy="${HTTP_PROXY}" https_proxy="${HTTPS_PROXY}" no_proxy="${NO_PROXY}" \
+    apt-get update -qq && \
     cd /tmp/control-dir && \
     if [ "${CROSS}" = "true" ]; then \
       apt-get build-dep -y --host-architecture "${TARGET_ARCH}" --build-profiles cross . && \
