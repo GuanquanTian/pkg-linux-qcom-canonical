@@ -1,0 +1,290 @@
+// SPDX-License-Identifier: BSD-3-Clause-clear
+/*
+ * qcom metadata device tree source
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *
+ */
+
+/dts-v1/;
+
+/ {
+	description = "Image with compressed metadata blob";
+
+	soc {
+		glymur {
+			msm-id = <0x000002ba>;
+		};
+
+		hamoa {
+			msm-id = <0x000002c5>;
+		};
+
+		kaanapali {
+			msm-id = <0x00000294>;
+		};
+
+		mahua {
+			msm-id = <0x000002b5>;
+		};
+
+		purwa {
+			msm-id = <0x000002c7>;
+		};
+
+		qcm6490 {
+			msm-id = <0x000001f1>;
+		};
+
+		qcs615 {
+			msm-id = <0x000002a8>;
+		};
+
+		qcs5430 {
+			msm-id = <0x0000023f>;
+		};
+
+		qcs6490 {
+			msm-id = <0x000001f2>;
+		};
+
+		qcs8275 {
+			msm-id = <0x000002a3>;
+		};
+
+		qcs8300 {
+			msm-id = <0x000002a2>;
+		};
+
+		qcs9075 {
+			msm-id = <0x000002a4>;
+		};
+
+		qcs9100 {
+			msm-id = <0x0000029b>;
+		};
+
+		sa8775p {
+			msm-id = <0x00000216>;
+		};
+
+		shikracqm {
+			msm-id = <0x000002f4>;
+		};
+
+		shikracqs {
+			msm-id = <0x000002f6>;
+		};
+
+		shikraiqs {
+			msm-id = <0x000002f7>;
+		};
+
+		sm8750 {
+			msm-id = <0x0000026a>;
+		};
+	};
+
+	soc-sku {
+		sku0 {
+			msm-id = <0x00030000>;
+		};
+	};
+
+	socver {
+		socv1.0 {
+			socver-id = <0x10>;
+		};
+
+		socv1.1 {
+			socver-id = <0x11>;
+		};
+
+		socv2.0 {
+			socver-id = <0x20>;
+		};
+
+		socv2.1 {
+			socver-id = <0x21>;
+		};
+
+	};
+
+	board {
+		adp {
+			board-id = <0x00000019>;
+		};
+
+		atp {
+			board-id = <0x00000021>;
+		};
+
+		cdp {
+			board-id = <0x00000001>;
+		};
+
+		crd {
+			board-id = <0x00000028>;
+		};
+
+		evk {
+			board-id = <0x0000002f>;
+		};
+
+		idp {
+			board-id = <0x00000022>;
+		};
+
+		iot {
+			board-id = <0x00000020>;
+		};
+
+		itp {
+			board-id = <0x00000033>;
+		};
+
+		mtp {
+			board-id = <0x00000008>;
+		};
+
+		qam {
+			board-id = <0x00000025>;
+		};
+
+		qrd {
+			board-id = <0x0000000b>;
+		};
+	};
+
+	boardrev {
+		r1.0 {
+			boardrev-id = <0x10>;
+		};
+
+		r1.1 {
+			boardrev-id = <0x11>;
+		};
+
+		r2.0 {
+			boardrev-id = <0x20>;
+		};
+
+		r2.1 {
+			boardrev-id = <0x21>;
+		};
+
+	};
+
+	board-subtype-peripheral-subtype {
+		subtype0 {
+			board-subtype  = <0x00000000>;
+		};
+
+		subtype1 {
+			board-subtype  = <0x00000001>;
+		};
+
+		subtype2 {
+			board-subtype  = <0x00000002>;
+		};
+
+		subtype3 {
+			board-subtype  = <0x00000003>;
+		};
+
+		subtype4 {
+			board-subtype  = <0x00000004>;
+		};
+
+		subtype5 {
+			board-subtype  = <0x00000005>;
+		};
+
+		subtype6 {
+			board-subtype  = <0x00000006>;
+		};
+
+		subtype7 {
+			board-subtype  = <0x00000007>;
+		};
+
+		subtype8 {
+			board-subtype  = <0x00000008>;
+		};
+
+		subtype9 {
+			board-subtype  = <0x00000009>;
+		};
+		
+		subtype10 {
+			board-subtype  = <0x0000000a>;
+		};
+
+		subtype13 {
+			board-subtype  = <0x0000000d>;
+		};
+	};
+
+
+	board-subtype-storage-type {
+		ufs {
+			board-subtype = <0x00004000>;
+		};
+
+		nand {
+			board-subtype = <0x00008000>;
+		};
+
+		sdcard {
+			board-subtype = <0x0000C000>;
+		};
+
+		emmc {
+			board-subtype = <0x00000000>;
+		};
+	};
+
+	board-subtype-memory-size {
+		256MB {
+			board-subtype = <0x00000100>;
+		};
+
+		512MB {
+			board-subtype = <0x00000200>;
+		};
+
+		1GB {
+			board-subtype = <0x00000300>;
+		};
+
+		2GB {
+			board-subtype = <0x00000400>;
+		};
+
+		3GB {
+			board-subtype = <0x00000500>;
+		};
+
+		4GB {
+			board-subtype = <0x00000600>;
+		};
+
+		4GB+ {
+			board-subtype = <0x00000000>;
+		};
+	};
+
+	softsku {
+		softsku0 {
+			softsku-id = <0x0>;
+		};
+
+		softsku1 {
+			softsku-id = <0x1>;
+		};
+	};
+
+	oem {
+
+	};
+};

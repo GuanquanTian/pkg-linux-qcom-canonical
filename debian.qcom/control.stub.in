@@ -53,6 +53,8 @@ Build-Depends:
  rust-src:native [amd64 arm64 armhf ppc64el riscv64 s390x],
  rustc:native (>= 1.82) [amd64 arm64 armhf ppc64el riscv64 s390x],
  rustfmt:native [amd64 arm64 armhf ppc64el riscv64 s390x],
+ u-boot-tools [arm64] <!stage1>,
+ device-tree-compiler [arm64] <!stage1>,
  uuid-dev <!stage1>,
  zstd <!stage1>,
  bpftool:native [amd64 arm64 armhf ppc64el riscv64 s390x] <!stage1 cross>,

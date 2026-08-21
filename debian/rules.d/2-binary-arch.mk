@@ -183,6 +183,21 @@ ifeq ($(do_dtbs),true)
 		INSTALL_DTBS_PATH=$(pkgdir)/usr/lib/firmware/$(abi_release)-$*/device-tree
 endif
 
+ifeq ($(do_fitimage),true)
+	# Generate a FIT image bundling the Qualcomm DTBs. The .its resolves its
+	# /incbin/ paths relative to its own location, so it is placed in the
+	# kernel build directory where the DTBs were built. It also pulls in a
+	# metadata DTB compiled from a DTS shipped in the packaging.
+	$(build_dir)/scripts/dtc/dtc -I dts -O dtb -q \
+		-o $(build_dir)/qcom-metadata.dtb \
+		$(CURDIR)/$(DEBIAN)/fitimage/qcom-metadata.dts
+	cp $(CURDIR)/$(DEBIAN)/fitimage/qcom-next-fitimage.its \
+		$(build_dir)/qcom-next-fitimage.its
+	install -d $(pkgdir)/usr/lib/firmware/$(abi_release)-$*/device-tree/qcom
+	mkimage -f $(build_dir)/qcom-next-fitimage.its \
+		$(pkgdir)/usr/lib/firmware/$(abi_release)-$*/device-tree/qcom/qcom.itb
+endif
+
 ifeq ($(no_dumpfile),)
 	makedumpfile -g $(pkgdir)/boot/vmcoreinfo-$(abi_release)-$* \
 		-x $(build_dir)/vmlinux
