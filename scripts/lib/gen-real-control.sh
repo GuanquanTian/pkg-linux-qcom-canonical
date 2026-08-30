@@ -91,6 +91,41 @@ run_debian_rules_clean() {
     || die "debian/rules clean did not produce ${source_dir}/debian/control"
 }
 
+# Incremental-mode counterpart to run_debian_rules_clean(): refreshes
+# debian/control and debian/changelog (still required by apt-get build-dep
+# and the version-parsing steps later in build-kernel-deb.sh) WITHOUT
+# wiping debian/build/ or debian/stamps/, so kbuild's and the stamp
+# machinery's own incremental state survives across runs.
+refresh_control_incremental() {
+  local source_dir="$1" debian_dir="$2" cross_env="${3:-}"
+
+  log "INCREMENTAL_BUILD set and previous build state found under ${source_dir}/debian/build — skipping 'debian/rules clean' to preserve it."
+
+  ( cd "${source_dir}" && cp "${debian_dir}/changelog" debian/changelog ) \
+    || die "Failed to sync ${debian_dir}/changelog to debian/changelog"
+
+  ( cd "${source_dir}" && env ${cross_env} fakeroot debian/rules debian/control ) \
+    || die "Failed to refresh debian/control"
+
+  [ -f "${source_dir}/debian/control" ] \
+    || die "debian/rules debian/control did not produce ${source_dir}/debian/control"
+}
+
+# Removes the prepare/build/install stamps for FLAVOR (or both qcom and
+# qcom-rt when FLAVOR=all, mirroring build-kernel-deb.sh's own FLAVOR
+# contract) so `make` re-enters those recipes on the next build instead of
+# treating them as already satisfied. debian/build/build-<flavour>/ itself
+# is left untouched — kbuild's own .cmd-based dependency tracking (not
+# make's stamp mtimes) decides which files actually need recompiling.
+invalidate_flavour_stamps() {
+  local stampdir="$1" flavor="$2" f flavors
+  flavors="${flavor}"
+  [ "${flavor}" = "all" ] && flavors="qcom qcom-rt"
+  for f in ${flavors}; do
+    rm -f "${stampdir}/stamp-prepare-${f}" "${stampdir}/stamp-build-${f}" "${stampdir}/stamp-install-${f}"
+  done
+}
+
 # Packages debian/control lists without a `:native` qualifier but that the
 # kernel's own build rules invoke directly as build-host tools (e.g.
 # llvm-config-<N> in debian/rules.d/2-binary-arch.mk) rather than linking

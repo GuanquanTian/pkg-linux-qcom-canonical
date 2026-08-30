@@ -24,6 +24,18 @@
 #                    to HEAD before every run, so this never leaves the tree
 #                    dirty.
 #
+# Environment:
+#   INCREMENTAL_BUILD  Set to 0/false/no/off to force debian/rules clean's
+#                       rm -rf debian/build debian/stamps even when prior
+#                       build state exists, so the next build is guaranteed
+#                       clean (default: 1, incremental — kbuild only
+#                       recompiles files that actually changed). Falls back
+#                       to a full clean automatically on the first build for
+#                       a given SOURCE_DIR. Do not leave enabled across a
+#                       change to debian/control-level Build-Depends, or
+#                       when a guaranteed-clean build is needed (e.g. before
+#                       a release/CI run).
+#
 # Output:
 #   Built .deb packages are placed in ./output/ relative to the working
 #   directory from which this script is invoked, unless OUTPUT_DIR is set
@@ -46,6 +58,7 @@ FLAVOR="${3:-qcom}"
 JOBS="${4:-$(nproc)}"
 VERSION_SUFFIX="${5:-}"
 SKIP_BUILD_DEP="${SKIP_BUILD_DEP:-0}"
+INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}"
 
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/output}"
 # Normalize to an absolute path now, before any `cd` below changes pwd out
@@ -96,6 +109,7 @@ log "  Flavour    : ${FLAVOR}"
 log "  Jobs       : ${JOBS}"
 log "  Output dir : ${OUTPUT_DIR}"
 log "  Version    : ${VERSION_SUFFIX:-(none)}"
+log "  Incremental: $(is_truthy "${INCREMENTAL_BUILD}" && echo enabled || echo disabled)"
 hr
 
 # ---------------------------------------------------------------------------
@@ -162,7 +176,15 @@ if [ -n "${VERSION_SUFFIX}" ]; then
   fi
 fi
 
-run_debian_rules_clean "${SOURCE_DIR}" "${CROSS_ENV}"
+BUILD_STATE_DIR="${SOURCE_DIR}/debian/build"
+if is_truthy "${INCREMENTAL_BUILD}" && [ -d "${BUILD_STATE_DIR}" ]; then
+  refresh_control_incremental "${SOURCE_DIR}" "${DEBIAN_DIR}" "${CROSS_ENV}"
+  invalidate_flavour_stamps "${SOURCE_DIR}/debian/stamps" "${FLAVOR}"
+else
+  is_truthy "${INCREMENTAL_BUILD}" \
+    && log "INCREMENTAL_BUILD set but no previous build state found under ${BUILD_STATE_DIR} — doing a full 'debian/rules clean' this first time."
+  run_debian_rules_clean "${SOURCE_DIR}" "${CROSS_ENV}"
+fi
 
 # ---------------------------------------------------------------------------
 # 3. Install build dependencies (if not skipped)

@@ -36,6 +36,10 @@
 #                    as root.
 #   DEBEMAIL        Email for changelog entries (default: build-kernel-deb@localhost)
 #   DEBFULLNAME     Full name for changelog entries (default: build-kernel-deb.sh)
+#   INCREMENTAL_BUILD  Set to 0/false/no/off to force a full debian/rules
+#                    clean even when prior build state exists (default: 1,
+#                    incremental). See build-kernel-deb.sh for details and
+#                    caveats.
 #
 # Output:
 #   Built .deb packages are placed in OUTPUT_DIR (default: ./output relative
@@ -47,6 +51,13 @@ set -euo pipefail
 log()  { printf '[%s] %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" >&2; }
 die()  { log "ERROR: $*"; exit 1; }
 hr()   { log "$(printf '%0.s─' {1..60})"; }
+
+is_truthy() {
+  case "${1:-}" in
+    1|[tT][rR][uU][eE]|[yY][eE][sS]|[oO][nN]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 
 # Resolve the script's absolute directory
 SCRIPT_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -91,6 +102,11 @@ log "  Flavour         : ${FLAVOR}"
 log "  Jobs            : ${JOBS}"
 log "  Docker image    : ${IMAGE}"
 log "  Output dir      : ${OUTPUT_DIR}"
+if is_truthy "${INCREMENTAL_BUILD:-1}"; then
+  log "  Incremental     : enabled"
+else
+  log "  Incremental     : disabled"
+fi
 hr
 
 # Build the local image on demand if not already present (no registry pull —
@@ -154,5 +170,6 @@ exec docker run "${docker_flags[@]}" \
   -e OUTPUT_DIR="${OUTPUT_DIR}" \
   -e DEBEMAIL="${DEBEMAIL:-}" \
   -e DEBFULLNAME="${DEBFULLNAME:-}" \
+  -e INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}" \
   "${IMAGE}" \
   bash "${SCRIPT_ABS}/build-kernel-deb.sh" "${SOURCE_DIR_ABS}" "${ARCH}" "${FLAVOR}" "${JOBS}" "${VERSION_SUFFIX}"

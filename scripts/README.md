@@ -138,10 +138,30 @@ Output packages: `./output/`
 | `IMAGE` | `kernel-build-docker:resolute-target-<ARCH>` | Docker image to use; built on demand via `build-docker-image.sh` if not already present locally |
 | `OUTPUT_DIR` | `./output` (relative to current directory) | Where built `.deb` packages are placed. Set to a fixed path (relative or absolute) if you don't want the output location to depend on which directory you invoke the script from. Created on the host before the container starts, so it's never auto-created by Docker as root |
 | `VERSION_SUFFIX` | (none) | Optional version suffix for the kernel package (e.g., `+v1.0`, `+myuser1`). Pass `auto` to generate from git HEAD |
+| `INCREMENTAL_BUILD` | `1` | Set to `0`/`false`/`no`/`off` to force a full `debian/rules clean` (`rm -rf debian/build debian/stamps`) even when prior build state exists (falls back to a full clean automatically on the first build for a given `SOURCE_DIR` regardless). Turn off after switching branches, changing `debian/control`-level Build-Depends, or before a release/CI run |
 | `DEBEMAIL` | `build-kernel-deb@localhost` | Email for changelog entries |
 | `DEBFULLNAME` | `build-kernel-deb.sh` | Full name for changelog entries |
 | `HTTP_PROXY` | (none) | HTTP proxy URL for Docker image build only (e.g., `http://your-proxy-server:8080`). Only needed on first run if your network cannot access Ubuntu package mirrors directly |
 | `HTTPS_PROXY` | (none) | HTTPS proxy URL for Docker image build only (e.g., `http://your-proxy-server:8080`). Only needed on first run if your network cannot access Ubuntu package mirrors directly |
+
+---
+
+### Incremental Builds
+
+Builds are incremental by default (`INCREMENTAL_BUILD=1`): build state
+(`debian/build/`, `debian/stamps/`) persists across runs even though each
+build runs in a `--rm` container, so kbuild only recompiles what changed.
+
+To force a clean build (e.g. after switching branches, changing
+`debian/control`-level Build-Depends, or before a release/CI run):
+
+```bash
+# Option 1: just run with INCREMENTAL_BUILD=0
+INCREMENTAL_BUILD=0 ./ubuntu-qcom-kernel/scripts/docker-build-kernel.sh resolute-qcom-devel arm64 qcom
+
+# Option 2: delete the incremental state directly
+rm -rf resolute-qcom-devel/debian/build resolute-qcom-devel/debian/stamps
+```
 
 ---
 
@@ -159,8 +179,8 @@ Arguments are resolved in the following order (first match wins):
 
 ```bash
 # JOBS comes from the environment variable since no 4th positional arg is given
-JOBS=8 ./scripts/docker-build-kernel.sh resolute-qcom-devel arm64 qcom
-# Result: SOURCE_DIR=resolute-qcom-devel, ARCH=arm64, FLAVOR=qcom, JOBS=8, VERSION_SUFFIX=(none)
+JOBS=16 ./scripts/docker-build-kernel.sh resolute-qcom-devel arm64 qcom
+# Result: SOURCE_DIR=resolute-qcom-devel, ARCH=arm64, FLAVOR=qcom, JOBS=16, VERSION_SUFFIX=(none)
 ```
 
 ---
