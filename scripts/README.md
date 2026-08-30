@@ -263,6 +263,16 @@ amd64 host, for both `build-docker-image.sh` and `docker-build-kernel.sh`.
 > fallback doesn't affect which architecture the resulting image runs as on
 > your build host.
 
+> **Note:** `docker-build-kernel.sh` only builds the image if it's missing
+> locally — it never rebuilds an already-cached one, even after
+> `Dockerfile.kernel-build` changes. If you pull an update to this repo that
+> touches the Dockerfile (e.g. a new base tool), remove the stale image so
+> it gets rebuilt on the next run:
+>
+> ```bash
+> docker rmi kernel-build-docker:resolute-target-<ARCH>
+> ```
+
 ---
 
 ## Create FIT dtb.bin
