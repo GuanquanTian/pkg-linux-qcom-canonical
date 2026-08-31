@@ -40,6 +40,10 @@
 #                    clean even when prior build state exists (default: 1,
 #                    incremental). See build-kernel-deb.sh for details and
 #                    caveats.
+#   DBGSYM          Set to 1/true/yes/on to also build the unstripped
+#                    -dbgsym.ddeb debug symbol packages alongside the .deb
+#                    packages (default: 0, disabled). See build-kernel-deb.sh
+#                    for details.
 #
 # Output:
 #   Built .deb packages are placed in OUTPUT_DIR (default: ./output relative
@@ -107,6 +111,7 @@ if is_truthy "${INCREMENTAL_BUILD:-1}"; then
 else
   log "  Incremental     : disabled"
 fi
+log "  Dbgsym          : $(is_truthy "${DBGSYM:-0}" && echo enabled || echo disabled)"
 hr
 
 # Build the local image on demand if not already present (no registry pull —
@@ -171,5 +176,6 @@ exec docker run "${docker_flags[@]}" \
   -e DEBEMAIL="${DEBEMAIL:-}" \
   -e DEBFULLNAME="${DEBFULLNAME:-}" \
   -e INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}" \
+  -e DBGSYM="${DBGSYM:-0}" \
   "${IMAGE}" \
   bash "${SCRIPT_ABS}/build-kernel-deb.sh" "${SOURCE_DIR_ABS}" "${ARCH}" "${FLAVOR}" "${JOBS}" "${VERSION_SUFFIX}"

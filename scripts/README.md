@@ -139,6 +139,7 @@ Output packages: `./output/`
 | `OUTPUT_DIR` | `./output` (relative to current directory) | Where built `.deb` packages are placed. Set to a fixed path (relative or absolute) if you don't want the output location to depend on which directory you invoke the script from. Created on the host before the container starts, so it's never auto-created by Docker as root |
 | `VERSION_SUFFIX` | (none) | Optional version suffix for the kernel package (e.g., `+v1.0`, `+myuser1`). Pass `auto` to generate from git HEAD |
 | `INCREMENTAL_BUILD` | `1` | Set to `0`/`false`/`no`/`off` to force a full `debian/rules clean` (`rm -rf debian/build debian/stamps`) even when prior build state exists (falls back to a full clean automatically on the first build for a given `SOURCE_DIR` regardless). Turn off after switching branches, changing `debian/control`-level Build-Depends, or before a release/CI run |
+| `DBGSYM` | `0` | Set to `1`/`true`/`yes`/`on` to also build the unstripped `-dbgsym.ddeb` debug symbol packages (vmlinux + modules with full debug symbols) alongside the `.deb` packages |
 | `DEBEMAIL` | `build-kernel-deb@localhost` | Email for changelog entries |
 | `DEBFULLNAME` | `build-kernel-deb.sh` | Full name for changelog entries |
 | `HTTP_PROXY` | (none) | HTTP proxy URL for Docker image build only (e.g., `http://your-proxy-server:8080`). Only needed on first run if your network cannot access Ubuntu package mirrors directly |

@@ -38,6 +38,9 @@
 #                       change to debian/control-level Build-Depends, or
 #                       when a guaranteed-clean build is needed (e.g. before
 #                       a release/CI run).
+#   DBGSYM             Set to 1/true/yes/on to also build the unstripped
+#                       -dbgsym.ddeb debug symbol packages alongside the
+#                       .deb packages (default: 0, disabled).
 #
 # Output:
 #   Built .deb packages are placed in ./output/ relative to the working
@@ -62,6 +65,7 @@ JOBS="${4:-8}"
 VERSION_SUFFIX="${5:-}"
 SKIP_BUILD_DEP="${SKIP_BUILD_DEP:-0}"
 INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}"
+DBGSYM="${DBGSYM:-0}"
 
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/output}"
 # Normalize to an absolute path now, before any `cd` below changes pwd out
@@ -113,6 +117,7 @@ log "  Jobs       : ${JOBS}"
 log "  Output dir : ${OUTPUT_DIR}"
 log "  Version    : ${VERSION_SUFFIX:-(none)}"
 log "  Incremental: $(is_truthy "${INCREMENTAL_BUILD}" && echo enabled || echo disabled)"
+log "  Dbgsym     : $(is_truthy "${DBGSYM}" && echo enabled || echo disabled)"
 hr
 
 # ---------------------------------------------------------------------------
@@ -251,11 +256,16 @@ fi
 export DEB_BUILD_OPTIONS="parallel=${JOBS} nocheck"
 
 # do_skip_checks=true bypasses the config-policy check (avoids failures when
-# optional toolchains like Rust/bindgen are absent). RULES_TARGET is
-# unquoted so make receives multiple targets as separate arguments.
+# optional toolchains like Rust/bindgen are absent). do_dbgsym_package
+# controls the unstripped -dbgsym.ddeb (vmlinux + modules with full debug
+# symbols) — same knob and default as the CI build-kernel.yml workflow.
+# RULES_TARGET is unquoted so make receives multiple targets as separate
+# arguments.
+DBGSYM_OPT="do_dbgsym_package=false"
+is_truthy "${DBGSYM}" && DBGSYM_OPT="do_dbgsym_package=true"
 (
   cd "${SOURCE_DIR}"
-  env ${CROSS_ENV} fakeroot debian/rules ${RULES_TARGET} do_skip_checks=true \
+  env ${CROSS_ENV} fakeroot debian/rules ${RULES_TARGET} do_skip_checks=true "${DBGSYM_OPT}" \
     || die "debian/rules ${RULES_TARGET} failed"
 )
 
@@ -265,9 +275,9 @@ export DEB_BUILD_OPTIONS="parallel=${JOBS} nocheck"
 hr
 # Clear only the artifact types we produce, not the whole dir.
 mkdir -p "${OUTPUT_DIR}"
-rm -f "${OUTPUT_DIR}"/*.deb "${OUTPUT_DIR}"/*.changes "${OUTPUT_DIR}"/*.buildinfo
+rm -f "${OUTPUT_DIR}"/*.deb "${OUTPUT_DIR}"/*.ddeb "${OUTPUT_DIR}"/*.changes "${OUTPUT_DIR}"/*.buildinfo
 
-# Collect .deb files from the parent directory matching this build's version.
+# Collect .deb/.ddeb files from the parent directory matching this build's version.
 PARENT_DIR=$(dirname "$(realpath "${SOURCE_DIR}")")
 DEB_VERSION="$(dpkg-parsechangelog -l "${SOURCE_DIR}/debian/changelog" -S Version)" \
   || die "Failed to read package version from debian/changelog"
@@ -283,7 +293,7 @@ while IFS= read -r -d '' f; do
   log "  Collected: $(basename "${f}")"
   collected=$((collected + 1))
 done < <(find "${PARENT_DIR}" -maxdepth 1 -name "*_${DEB_VERSION}_*" \
-           \( -name "*.deb" -o -name "*.changes" -o -name "*.buildinfo" \) -print0)
+           \( -name "*.deb" -o -name "*.ddeb" -o -name "*.changes" -o -name "*.buildinfo" \) -print0)
 
 [ "${collected}" -gt 0 ] \
   || die "Build finished but no artifacts matching version '${DEB_VERSION}' were found in ${PARENT_DIR}"
@@ -292,5 +302,5 @@ hr
 log "Build complete."
 log ""
 log "Output packages:"
-ls -lh "${OUTPUT_DIR}"/*.deb 2>/dev/null \
-  || log "  (no .deb files found — check build log above)"
+ls -lh "${OUTPUT_DIR}"/ 2>/dev/null \
+  || log "  (no output files found — check build log above)"
