@@ -51,12 +51,81 @@
 # Notes:
 #   • Supports native (arm64 host) and cross (amd64 host, e.g. via dpkg
 #     cross-architecture + gcc-aarch64-linux-gnu) builds.
-#   • Needs ~20 GB free disk space.
-#   • A full build (all flavours) takes 2+ hours; a single flavour ~1 hour.
 #   • Designed to run inside a Docker container with preinstalled dependencies.
 #   • For Docker builds, use the docker-build-kernel.sh wrapper.
+#   • Running this script directly on a bare host (not via
+#     docker-build-kernel.sh) requires the host's own apt sources to match
+#     the Ubuntu release SOURCE_DIR's debian/control targets (e.g. resolute);
+#     apt-get build-dep will fail to resolve packages on a host running a
+#     different release (e.g. noble), since the matching package mirror
+#     for that release won't be configured.
 
 set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: build-kernel-deb.sh [SOURCE_DIR] [ARCH] [FLAVOR] [JOBS] [VERSION_SUFFIX]
+
+Build Ubuntu kernel .deb packages from a Canonical source tree (as checked
+out from a series branch).
+
+Arguments:
+  SOURCE_DIR      Root of the kernel source tree containing debian/ (default: .)
+  ARCH            Target Debian architecture to compile for: arm64 (default: arm64).
+                    Build host may be arm64 (native) or amd64 (cross-compile via
+                    gcc-aarch64-linux-gnu); amd64 is not a supported target since
+                    the qcom/qcom-rt flavours are arm64-only.
+  FLAVOR          Kernel flavour: qcom | qcom-rt | all (default: qcom)
+  JOBS            Parallel make jobs (default: 8; incremental rebuilds with
+                    few changed files scale worse than expected past this
+                    due to scheduling overhead — override explicitly for a
+                    from-scratch build on a many-core machine)
+  VERSION_SUFFIX  Optional string appended to the package/kernel version,
+                    e.g. "+g1a2b3c4" or "+myuser1" (default: none). Pass
+                    "auto" to generate "+g<short commit>" from SOURCE_DIR's
+                    current HEAD (requires SOURCE_DIR to be a git work tree).
+                    Modifies debian.qcom/changelog, but the script restores it
+                    to HEAD before every run, so this never leaves the tree
+                    dirty.
+
+Environment:
+  INCREMENTAL_BUILD  Set to 0/false/no/off to force debian/rules clean's
+                      rm -rf debian/build debian/stamps even when prior
+                      build state exists, so the next build is guaranteed
+                      clean (default: 1, incremental — kbuild only
+                      recompiles files that actually changed). Falls back
+                      to a full clean automatically on the first build for
+                      a given SOURCE_DIR. Do not leave enabled across a
+                      change to debian/control-level Build-Depends, or
+                      when a guaranteed-clean build is needed (e.g. before
+                      a release/CI run).
+  DBGSYM             Set to 1/true/yes/on to also build the unstripped
+                      -dbgsym.ddeb debug symbol packages alongside the
+                      .deb packages (default: 0, disabled).
+
+Output:
+  Built .deb packages are placed in ./output/ relative to the working
+  directory from which this script is invoked, unless OUTPUT_DIR is set
+  in the environment (relative or absolute; normalized to an absolute path
+  up front), in which case that path is used instead.
+
+Notes:
+  • Supports native (arm64 host) and cross (amd64 host, e.g. via dpkg
+    cross-architecture + gcc-aarch64-linux-gnu) builds.
+  • Designed to run inside a Docker container with preinstalled dependencies.
+  • For Docker builds, use the docker-build-kernel.sh wrapper.
+  • Running this script directly on a bare host (not via
+    docker-build-kernel.sh) requires the host's own apt sources to match
+    the Ubuntu release SOURCE_DIR's debian/control targets (e.g. resolute);
+    apt-get build-dep will fail to resolve packages on a host running a
+    different release (e.g. noble), since the matching package mirror
+    for that release won't be configured.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
 
 SOURCE_DIR="${1:-.}"
 ARCH="${2:-arm64}"

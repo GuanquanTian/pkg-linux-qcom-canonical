@@ -51,6 +51,60 @@
 
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Usage: docker-build-kernel.sh [SOURCE_DIR] [ARCH] [FLAVOR] [JOBS] [VERSION_SUFFIX]
+
+Build Ubuntu kernel .deb packages inside a Docker container. Wraps
+build-kernel-deb.sh and runs it inside a Docker container. Automatically
+detects the current architecture and, if the appropriate Docker image
+isn't already available locally, builds one via build-docker-image.sh
+(using SOURCE_DIR's own debian/control).
+
+Arguments: positional args override env vars, which override defaults.
+SOURCE_DIR is resolved relative to the current working directory.
+
+Arguments:
+  SOURCE_DIR      Root of the kernel source tree (relative to current directory, default: resolute-qcom-devel)
+  ARCH            Target Debian architecture: arm64 (default: arm64)
+  FLAVOR          Kernel flavour: qcom | qcom-rt | all (default: qcom)
+  JOBS            Parallel make jobs (default: 8)
+  VERSION_SUFFIX  Optional version suffix (default: none)
+
+Environment:
+  IMAGE           Docker image to use (default: kernel-build-docker:resolute-target-<ARCH>,
+                   built on demand via build-docker-image.sh if not already
+                   present locally). Set this to use a different image
+                   instead — it must already exist locally, since this
+                   script no longer pulls from a registry.
+  OUTPUT_DIR      Where to place built .deb packages (default: ./output
+                   relative to the current directory). Set this to a fixed
+                   absolute path if you don't want the output location to
+                   depend on which directory you invoke this script from.
+                   Created on the host (with your uid/gid) before the
+                   container starts, so it's never auto-created by Docker
+                   as root.
+  DEBEMAIL        Email for changelog entries (default: build-kernel-deb@localhost)
+  DEBFULLNAME     Full name for changelog entries (default: build-kernel-deb.sh)
+  INCREMENTAL_BUILD  Set to 0/false/no/off to force a full debian/rules
+                   clean even when prior build state exists (default: 1,
+                   incremental). See build-kernel-deb.sh for details and
+                   caveats.
+  DBGSYM          Set to 1/true/yes/on to also build the unstripped
+                   -dbgsym.ddeb debug symbol packages alongside the .deb
+                   packages (default: 0, disabled). See build-kernel-deb.sh
+                   for details.
+
+Output:
+  Built .deb packages are placed in OUTPUT_DIR (default: ./output relative
+  to the current directory).
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
 # Logging helpers
 log()  { printf '[%s] %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*" >&2; }
 die()  { log "ERROR: $*"; exit 1; }
