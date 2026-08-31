@@ -128,7 +128,7 @@ Output packages: `./output/`
 | `SOURCE_DIR` | `resolute-qcom-devel` | Root of kernel source tree (resolved relative to current working directory) |
 | `ARCH` | `arm64` | Target architecture: `arm64` |
 | `FLAVOR` | `qcom` | Kernel flavor: `qcom`, `qcom-rt`, or `all` (builds both `qcom` and `qcom-rt`) |
-| `JOBS` | `$(nproc)` | Parallel make jobs |
+| `JOBS` | `8` | Parallel make jobs. Higher values scale worse than expected on incremental (mostly-unchanged) rebuilds due to scheduling overhead — override explicitly (e.g. to `$(nproc)`) for a from-scratch build on a many-core machine |
 | `VERSION_SUFFIX` | (none) | Version suffix (e.g., `+g1a2b3c4` or `+myuser1`). Pass `auto` to generate from git HEAD |
 
 ### Environment Variables

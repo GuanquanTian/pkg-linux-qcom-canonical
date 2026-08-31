@@ -15,7 +15,10 @@
 #                    gcc-aarch64-linux-gnu); amd64 is not a supported target since
 #                    the qcom/qcom-rt flavours are arm64-only.
 #   FLAVOR          Kernel flavour: qcom | qcom-rt | all (default: qcom)
-#   JOBS            Parallel make jobs (default: nproc)
+#   JOBS            Parallel make jobs (default: 8; incremental rebuilds with
+#                    few changed files scale worse than expected past this
+#                    due to scheduling overhead — override explicitly for a
+#                    from-scratch build on a many-core machine)
 #   VERSION_SUFFIX  Optional string appended to the package/kernel version,
 #                    e.g. "+g1a2b3c4" or "+myuser1" (default: none). Pass
 #                    "auto" to generate "+g<short commit>" from SOURCE_DIR's
@@ -55,7 +58,7 @@ set -euo pipefail
 SOURCE_DIR="${1:-.}"
 ARCH="${2:-arm64}"
 FLAVOR="${3:-qcom}"
-JOBS="${4:-$(nproc)}"
+JOBS="${4:-8}"
 VERSION_SUFFIX="${5:-}"
 SKIP_BUILD_DEP="${SKIP_BUILD_DEP:-0}"
 INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}"

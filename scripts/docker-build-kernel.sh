@@ -18,7 +18,7 @@
 #   SOURCE_DIR      Root of the kernel source tree (relative to current directory, default: resolute-qcom-devel)
 #   ARCH            Target Debian architecture: arm64 (default: arm64)
 #   FLAVOR          Kernel flavour: qcom | qcom-rt | all (default: qcom)
-#   JOBS            Parallel make jobs (default: nproc)
+#   JOBS            Parallel make jobs (default: 8)
 #   VERSION_SUFFIX  Optional version suffix (default: none)
 #
 # Environment:
@@ -70,7 +70,7 @@ CURRENT_DIR="$(pwd)"
 SOURCE_DIR="${1:-${SOURCE_DIR:-resolute-qcom-devel}}"
 ARCH="${2:-${ARCH:-arm64}}"
 FLAVOR="${3:-${FLAVOR:-qcom}}"
-JOBS="${4:-${JOBS:-$(nproc)}}"
+JOBS="${4:-${JOBS:-8}}"
 VERSION_SUFFIX="${5:-${VERSION_SUFFIX:-}}"
 
 # Convert SOURCE_DIR (relative to current directory) to an absolute path
