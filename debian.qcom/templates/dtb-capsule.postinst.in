@@ -1,0 +1,223 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+#
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+# =============================================================================
+# Installed as DEBIAN/postinst inside dtb-capsule-<kver>-qcom.deb.
+# Rendered into debian/dtb-capsule-<kver>-qcom.postinst by debian/rules.
+# Reads its target kernel version from the package's own expected-kver file.
+#
+# Runs stage_capsule() on `dpkg --configure` of this package.
+set -e
+
+PKG_SHARE="${PKG_SHARE:-/usr/share/dtb-capsule}"
+EXPECTED_KVER_FILE="${PKG_SHARE}/expected-kver"
+ESP_MOUNT="${ESP_MOUNT:-/boot/efi}"
+CAPSULE_DIR="${CAPSULE_DIR:-${ESP_MOUNT}/EFI/UpdateCapsule}"
+# Shared with scripts/verify-capsule-result.sh.
+STATE_DIR="${STATE_DIR:-/var/lib/dtb-capsule}"
+GUID_CONFLICT_FILE="${STATE_DIR}/last-guid-conflict"
+PRE_UPDATE_DTB_FILE="${STATE_DIR}/pre-update-dtb"
+LAST_VERIFIED_KVER_FILE="${STATE_DIR}/last-verified-kver"
+LAST_ESRT_CONFIRMED_FILE="${STATE_DIR}/last-esrt-confirmed"
+LAST_ESRT_DETAIL_FILE="${STATE_DIR}/last-esrt-detail"
+VERIFY_STATE_FILE="${STATE_DIR}/last-verify-state"
+DT_PROVENANCE_DIR="${DT_PROVENANCE_DIR:-/sys/firmware/devicetree/base/qcom-dtb-capsule-provenance}"
+OSIND_GUID="8be4df61-93ca-11d2-aa0d-00e098032b8c"
+OSIND_NAME="OsIndications"
+OSIND_VAR="/sys/firmware/efi/efivars/${OSIND_NAME}-${OSIND_GUID}"
+CAPSULE_PENDING_GUID="882f8c2b-9646-435f-8de5-f208ff80c1bd"
+CAPSULE_PENDING_NAME="IsCapsulePendingInPersistedMedia"
+CAPSULE_PENDING_VAR="/sys/firmware/efi/efivars/${CAPSULE_PENDING_NAME}-${CAPSULE_PENDING_GUID}"
+# Overridable for unit-testing this script without touching the real /sys.
+ESRT_ENTRIES_DIR="${ESRT_ENTRIES_DIR:-/sys/firmware/efi/esrt/entries}"
+
+log() { echo "dtb-capsule: $*" >&2; }
+
+# Reads bytes 4..11 of $1 (skipping the EFI variable's 4-byte attribute
+# header) as a little-endian 64-bit value, echoing the result in decimal.
+# Reconstructs the value from single bytes rather than using `od --endian`
+# (a GNU coreutils extension absent from busybox od), portable across
+# dash/busybox sh/bash.
+le64_from_offset4() {
+    _v=0
+    _shift=0
+    for _byte in $(od -An -tx1 -j4 -N8 "$1" 2>/dev/null); do
+        _v=$(( _v | (0x${_byte} << _shift) ))
+        _shift=$(( _shift + 8 ))
+    done
+    echo "$_v"
+}
+
+stage_capsule() {
+    # Clear the previous attempt's verify-state result.
+    rm -f "$VERIFY_STATE_FILE"
+
+    # Clear IsCapsulePendingInPersistedMedia if it's stuck from a prior failed
+    # update (e.g. UEFI crash). If this bit is set, firmware thinks a capsule
+    # update is in progress and will reject new capsules. Reset it to 0x00 to
+    # allow new capsule update to proceed.
+    if [ -e "$CAPSULE_PENDING_VAR" ] && command -v efivar >/dev/null 2>&1; then
+        PENDING_VAL="$(od -An -tx1 -j4 -N1 "$CAPSULE_PENDING_VAR" 2>/dev/null | tr -d ' ')"
+        if [ "$PENDING_VAL" = "01" ]; then
+            log "WARNING: IsCapsulePendingInPersistedMedia is set (0x01) — prior capsule update may have failed; clearing it to allow new capsule update"
+            TMP_DATA="$(mktemp)"
+            printf '\x00' > "$TMP_DATA"
+            efivar -n "${CAPSULE_PENDING_GUID}-${CAPSULE_PENDING_NAME}" -f "$TMP_DATA" -w 2>/dev/null || log "WARNING: failed to clear IsCapsulePendingInPersistedMedia via efivar"
+            rm -f "$TMP_DATA"
+        fi
+    fi
+
+    if [ ! -f "$EXPECTED_KVER_FILE" ]; then
+        log "WARNING: ${EXPECTED_KVER_FILE} missing — cannot determine target kernel version, skipping"
+        return 0
+    fi
+    KVER="$(cat "$EXPECTED_KVER_FILE")"
+    if [ -z "$KVER" ]; then
+        log "WARNING: ${EXPECTED_KVER_FILE} empty, skipping"
+        return 0
+    fi
+
+    # Defense-in-depth against --force-depends bypassing the Depends check.
+    if ! dpkg-query -W -f='${Status}' "linux-modules-${KVER}" 2>/dev/null | grep -q "^install ok installed$"; then
+        log "ERROR: linux-modules-${KVER} is not installed — cannot stage capsule (installed with --force-depends?)"
+        exit 1
+    fi
+
+    # One <machine>-dtb.cap per platform under $PKG_SHARE/<machine>/. Pick
+    # the one whose FMP_GUID (capsule.env) is registered in this device's ESRT.
+    if [ ! -d "$ESRT_ENTRIES_DIR" ]; then
+        log "WARNING: ${ESRT_ENTRIES_DIR} not found (no ESRT support?) — cannot select a platform, skipping"
+        return 0
+    fi
+
+    DEVICE_GUIDS="$(cat "${ESRT_ENTRIES_DIR}"/entry*/fw_class 2>/dev/null | tr 'A-Z' 'a-z')"
+    if [ -z "$DEVICE_GUIDS" ]; then
+        log "WARNING: no fw_class entries readable under ${ESRT_ENTRIES_DIR} — skipping"
+        return 0
+    fi
+
+    MATCHED_MACHINE=""
+    MATCHED_MACHINES=""
+    MATCH_COUNT=0
+    for env_file in "${PKG_SHARE}"/*/capsule.env; do
+        [ -f "$env_file" ] || continue
+        machine="$(basename "$(dirname "$env_file")")"
+        FMP_GUID=""
+        # shellcheck disable=SC1090
+        . "$env_file"
+        [ -n "$FMP_GUID" ] || continue
+        fmp_guid_lc="$(printf '%s' "$FMP_GUID" | tr 'A-Z' 'a-z')"
+        if printf '%s\n' "$DEVICE_GUIDS" | grep -qx "$fmp_guid_lc"; then
+            MATCHED_MACHINE="$machine"
+            MATCHED_MACHINES="${MATCHED_MACHINES}${MATCHED_MACHINES:+,}${machine}(${fmp_guid_lc})"
+            MATCH_COUNT=$(( MATCH_COUNT + 1 ))
+        fi
+    done
+
+    if [ "$MATCH_COUNT" -eq 0 ]; then
+        log "WARNING: no FMP_GUID among packaged platforms matched this device's ESRT entries — skipping capsule staging"
+        return 0
+    elif [ "$MATCH_COUNT" -gt 1 ]; then
+        log "ERROR: ${MATCH_COUNT} packaged platforms' FMP_GUIDs matched this device's ESRT entries (ambiguous): ${MATCHED_MACHINES} — skipping capsule staging"
+        mkdir -p "$STATE_DIR"
+        printf '%s kver=%s matched=%s\n' "$(date -u +%FT%TZ)" "$KVER" "$MATCHED_MACHINES" > "$GUID_CONFLICT_FILE"
+        return 0
+    fi
+
+    log "matched platform '${MATCHED_MACHINE}' via ESRT FMP_GUID"
+    rm -f "$GUID_CONFLICT_FILE"
+    CAP_SRC="${PKG_SHARE}/${MATCHED_MACHINE}/${MATCHED_MACHINE}-dtb.cap"
+
+    if [ ! -f "$CAP_SRC" ]; then
+        log "no .cap found at ${CAP_SRC}, skipping"
+        return 0
+    fi
+
+    # An unconsumed .cap already in CAPSULE_DIR with OsIndications bit2 not
+    # set means firmware was never told to process it. Logged only; still
+    # proceeds to stage this capsule and (re)try setting the bit below.
+    if [ -d "$CAPSULE_DIR" ] && [ -n "$(ls -A "$CAPSULE_DIR" 2>/dev/null)" ] && command -v efivar >/dev/null 2>&1; then
+        PRIOR_BIT_VAL=0
+        if [ -e "$OSIND_VAR" ]; then
+            PRIOR_BIT_VAL="$(le64_from_offset4 "$OSIND_VAR")"
+        fi
+        if [ $(( PRIOR_BIT_VAL & 4 )) -eq 0 ]; then
+            log "WARNING: ${CAPSULE_DIR} already holds an unconsumed capsule from a previous staging attempt, but OsIndications capsule-delivery bit is NOT set — firmware was likely never told to process it (interrupted previous install, or a prior efivar write that silently failed); proceeding to stage this capsule and (re)set the bit now"
+        fi
+    fi
+
+    # Snapshots the currently-running kernel version and dtb-provenance-sha256,
+    # for scripts/verify-capsule-result.sh to compare against after reboot.
+    if [ -f "${DT_PROVENANCE_DIR}/dtb-provenance-sha256" ]; then
+        mkdir -p "$STATE_DIR"
+        PRE_KVER="$(uname -r)"
+        PRE_DTB_SHA="$(tr -d '\0' < "${DT_PROVENANCE_DIR}/dtb-provenance-sha256" 2>/dev/null || echo "")"
+        printf 'kver=%s\ndtb_provenance_sha256=%s\n' "$PRE_KVER" "$PRE_DTB_SHA" > "$PRE_UPDATE_DTB_FILE"
+        log "recorded pre-update snapshot (kver=${PRE_KVER}, dtb-provenance-sha256=${PRE_DTB_SHA}) for post-reboot rollback detection"
+    fi
+
+    mkdir -p "$CAPSULE_DIR"
+    rm -f "${CAPSULE_DIR}"/qcom-dtb-*.cap
+    cp -f "$CAP_SRC" "${CAPSULE_DIR}/qcom-dtb-${KVER}.cap"
+    log "capsule staged at ${CAPSULE_DIR}/qcom-dtb-${KVER}.cap"
+
+    # Uses `efivar -w`, not a raw efivarfs write, so it can create the
+    # OsIndications entry if it doesn't already exist in NVRAM.
+    if ! command -v efivar >/dev/null 2>&1; then
+        log "WARNING: efivar not installed, cannot set OsIndications — capsule will not be applied"
+        return 0
+    fi
+
+    CUR_VAL=0
+    if [ -e "$OSIND_VAR" ]; then
+        CUR_VAL="$(le64_from_offset4 "$OSIND_VAR")"
+    fi
+    if [ $(( CUR_VAL & 4 )) -eq 0 ]; then
+        NEW_VAL=$(( CUR_VAL | 4 ))
+        TMP_DATA="$(mktemp)"
+        # \NNN (octal) escapes: dash's printf builtin does not understand
+        # \xHH and passes it through as literal characters.
+        OCT=""
+        i=0
+        v=$NEW_VAL
+        while [ $i -lt 8 ]; do
+            OCT="${OCT}\\$(printf '%03o' "$(( v & 255 ))")"
+            v=$(( v >> 8 ))
+            i=$(( i + 1 ))
+        done
+        printf "$OCT" > "$TMP_DATA"
+        efivar -n "${OSIND_GUID}-${OSIND_NAME}" -f "$TMP_DATA" -w
+        rm -f "$TMP_DATA"
+
+        # Read back what's actually in NVRAM now — `efivar -w`'s own exit
+        # status only reflects whether the ioctl/write syscall was accepted,
+        # not whether firmware later honors it, so confirm the bit is really
+        # readable-back-set before declaring success.
+        VERIFY_VAL=0
+        if [ -e "$OSIND_VAR" ]; then
+            VERIFY_VAL="$(le64_from_offset4 "$OSIND_VAR")"
+        fi
+        if [ $(( VERIFY_VAL & 4 )) -eq 0 ]; then
+            log "ERROR: wrote OsIndications capsule-delivery bit via efivar, but read-back shows it is still NOT set (raw value=${VERIFY_VAL}) — capsule was staged but firmware will not be told to process it; check efivarfs is writable/mounted"
+        else
+            log "set OsIndications capsule-delivery bit via efivar (verified via read-back)"
+        fi
+    else
+        log "OsIndications capsule-delivery bit already set"
+    fi
+
+    # No reboot here — firmware applies the capsule pre-OS on the next boot.
+    log "capsule staged for ${KVER}; will apply on next boot"
+}
+
+case "$1" in
+    configure)
+        stage_capsule
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

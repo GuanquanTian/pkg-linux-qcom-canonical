@@ -1,0 +1,40 @@
+#!/bin/sh
+# Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+#
+# SPDX-License-Identifier: BSD-3-Clause-Clear
+#
+# =============================================================================
+# Installed as DEBIAN/prerm inside dtb-capsule-<kver>-qcom.deb.
+# Rendered into debian/dtb-capsule-<kver>-qcom.prerm by debian/rules.
+# Reads its target kernel version from the package's own expected-kver file.
+#
+# On removal, deletes this package's staged-but-unconsumed capsule at
+# /boot/efi/EFI/UpdateCapsule/qcom-dtb-<kver>.cap — that file lives outside
+# dpkg's file list, so plain package removal would otherwise leave it for
+# firmware to apply pre-OS on the next boot.
+set -e
+
+PKG_SHARE="${PKG_SHARE:-/usr/share/dtb-capsule}"
+EXPECTED_KVER_FILE="${PKG_SHARE}/expected-kver"
+CAPSULE_DIR="${CAPSULE_DIR:-/boot/efi/EFI/UpdateCapsule}"
+
+log() { echo "dtb-capsule: $*" >&2; }
+
+case "$1" in
+    remove)
+        if [ -f "$EXPECTED_KVER_FILE" ]; then
+            KVER="$(cat "$EXPECTED_KVER_FILE")"
+            if [ -n "$KVER" ]; then
+                CAP_FILE="${CAPSULE_DIR}/qcom-dtb-${KVER}.cap"
+                if [ -f "$CAP_FILE" ]; then
+                    rm -f "$CAP_FILE"
+                    log "removed unconsumed staged capsule ${CAP_FILE} (package being uninstalled)"
+                fi
+            fi
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
