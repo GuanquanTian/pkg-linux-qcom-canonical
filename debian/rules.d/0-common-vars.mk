@@ -109,6 +109,13 @@ bldinfo_pkg_name=linux-buildinfo-$(abi_release)
 hdrs_pkg_name=linux-headers-$(abi_release)
 rust_pkg_name=linux-lib-rust-$(abi_release)
 indep_hdrs_pkg_name=$(DEB_SOURCE)-headers-$(abi_release)
+dtb_capsule_pkg_name=dtb-capsule-$(abi_release)-qcom
+dtb_capsule_cert_leaf ?= $(CURDIR)/$(DEBIAN)/certs/QcFMPCert.pem
+dtb_capsule_cert_root ?= $(CURDIR)/$(DEBIAN)/certs/QcFMPRoot.pub.pem
+dtb_capsule_cert_sub ?= $(CURDIR)/$(DEBIAN)/certs/QcFMPSub.pub.pem
+dtb_capsule_fwver ?= 0.0.2.0
+dtb_capsule_lfwver ?= 0.0.0.0
+dtb_capsule_storage_type ?= NORUFS
 
 #
 # Similarly with the linux-source package, you need not build it as a developer. Its

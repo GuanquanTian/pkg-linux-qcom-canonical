@@ -92,3 +92,18 @@ Description: Linux kernel version specific tools for version PKGVER-ABINUM
  version locked tools (such as perf and x86_energy_perf_policy) for
  version PKGVER-ABINUM.
  You probably want to install linux-tools-PKGVER-ABINUM-<flavour>.
+
+Package: dtb-capsule-PKGVER-ABINUM-qcom
+Build-Profiles: <!stage1>
+Architecture: arm64
+Section: admin
+Priority: optional
+Depends: ${misc:Depends}, linux-modules-PKGVER-ABINUM-qcom
+Provides: dtb-capsule-qcom
+Conflicts: dtb-capsule-qcom
+Replaces: dtb-capsule-qcom
+Description: DTB UEFI capsule update for version PKGVER
+ This package provides a UEFI capsule image and provenance manifest
+ for updating the Qualcomm device tree blob (DTB) staged for version
+ PKGVER, along with a systemd service that verifies the update result
+ on the next boot.

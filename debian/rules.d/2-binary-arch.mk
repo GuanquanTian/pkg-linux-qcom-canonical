@@ -126,6 +126,8 @@ $(stampdir)/stamp-install-%: cloudpkgdir = $(CURDIR)/debian/$(cloud_flavour_pkg_
 $(stampdir)/stamp-install-%: bpfdevpkgdir = $(CURDIR)/debian/linux-bpf-dev
 $(stampdir)/stamp-install-%: bpftoolpkgdir = $(CURDIR)/debian/$(bpftool_pkg_name)
 $(stampdir)/stamp-install-%: perfpkgdir = $(CURDIR)/debian/$(perf_pkg_name)
+$(stampdir)/stamp-install-%: dtbcapsulepkgdir = $(CURDIR)/debian/$(dtb_capsule_pkg_name)
+$(stampdir)/stamp-install-%: capsule_dir = $(builddir)/dtb-capsule
 $(stampdir)/stamp-install-%: basepkg = $(hdrs_pkg_name)
 $(stampdir)/stamp-install-%: baserustpkg = $(rust_pkg_name)
 $(stampdir)/stamp-install-%: indeppkg = $(indep_hdrs_pkg_name)
@@ -169,6 +171,15 @@ ifeq ($(do_linux_tools),true)
  endif
 endif
 
+ifeq ($(do_dtb_capsule),true)
+ ifneq ($(filter $(dtb_capsule_pkg_name),$(packages_enabled)),)
+	# dtb-capsule is not a per-flavour package either — same guard as linux-bpf-dev above.
+	if [ $* = $(firstword $(flavours)) ] ; then \
+		dh_prep -p$(dtb_capsule_pkg_name) ; \
+	fi
+ endif
+endif
+
 	# The main image
 	install -m600 -D $(build_dir)/$(kernfile) \
 		$(pkgdir_bin)/boot/$(instfile)-$(abi_release)-$*
@@ -196,6 +207,86 @@ ifeq ($(do_fitimage),true)
 	install -d $(pkgdir)/usr/lib/firmware/$(abi_release)-$*/device-tree/qcom
 	mkimage -f $(build_dir)/qcom-next-fitimage.its \
 		$(pkgdir)/usr/lib/firmware/$(abi_release)-$*/device-tree/qcom/qcom.itb
+endif
+
+ifeq ($(do_dtb_capsule),true)
+ ifneq ($(filter $(dtb_capsule_pkg_name),$(packages_enabled)),)
+	# dtb-capsule is not a per-flavour package (see control.stub.in) — build
+	# its capsule-only dtb.bin exactly once, from the first flavour's DTBs.
+	# This is a distinct artefact from do_fitimage's qcom.itb above: it's a
+	# FAT-wrapped, external-data (-E -B 8) FIT image consumed by UEFI
+	# firmware from the dtb/dtb_BACKUP GPT partitions pre-boot, not the
+	# inline-mode FIT image u-boot/GRUB reads from /usr/lib/firmware at
+	# normal OS boot. The two steps only share source .dtb/.dtbo files and
+	# the qcom-metadata.dts/qcom-next-fitimage.its inputs.
+	if [ $* = $(firstword $(flavours)) ] ; then \
+		rm -rf $(capsule_dir) ; \
+		install -d $(capsule_dir)/dtb ; \
+		for f in $(build_dir)/arch/$(build_arch)/boot/dts/qcom/*.dtb \
+			 $(build_dir)/arch/$(build_arch)/boot/dts/qcom/*.dtbo ; do \
+			[ -e "$$f" ] && cp -p "$$f" $(capsule_dir)/dtb/ ; \
+		done ; \
+		( cd $(capsule_dir)/dtb && sha256sum *.dtb *.dtbo 2>/dev/null | sort -k2,2 ) \
+			> $(capsule_dir)/dtb-provenance-content-sha256sums.txt ; \
+		capsule_pkg_sha256=$$(sha256sum $(capsule_dir)/dtb-provenance-content-sha256sums.txt | cut -d' ' -f1) ; \
+		for dtb in $(capsule_dir)/dtb/*.dtb ; do \
+			[ -e "$$dtb" ] || continue ; \
+			fdtput -p -t s "$$dtb" /qcom-dtb-capsule-provenance kernel-pkg-sha256 "$$capsule_pkg_sha256" ; \
+		done ; \
+		$(CURDIR)/$(DEBIAN)/fitimage/build-dtb-image.sh \
+			--dtb-src $(capsule_dir)/dtb \
+			--soc hamoa purwa \
+			--size 4 \
+			--out $(capsule_dir)/dtb.bin \
+			--prune ; \
+		export PYTHONPATH=$(CURDIR)/$(DEBIAN)/scripts ; \
+		QCT="python3 -m qcom_capsule_tool.cli" ; \
+		for machine in hamoa purwa ; do \
+			FMP_GUID= ; TARGET= ; \
+			. $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/config/$$machine/capsule.env ; \
+			mdir=$(capsule_dir)/$$machine ; \
+			rm -rf $$mdir ; \
+			install -d $$mdir/Images ; \
+			cp -f $(capsule_dir)/dtb.bin $$mdir/Images/dtb.bin ; \
+			( cd $$mdir && \
+			  $$QCT create \
+				-fwver $(dtb_capsule_fwver) -lfwver $(dtb_capsule_lfwver) \
+				-S $(dtb_capsule_storage_type) -T $$TARGET \
+				--ptool-path $(CURDIR)/$(DEBIAN)/qcom-ptool \
+				--update-partitions dtb \
+				-config config.json \
+				-p $(dtb_capsule_cert_leaf) \
+				-x $(dtb_capsule_cert_root) \
+				-oc $(dtb_capsule_cert_sub) \
+				-guid $$FMP_GUID \
+				-capsule $$machine-dtb.cap \
+				-images Images ) ; \
+		done ; \
+		\
+		install -d $(dtbcapsulepkgdir)/usr/share/dtb-capsule ; \
+		for machine in hamoa purwa ; do \
+			install -Dm644 $(capsule_dir)/$$machine/$$machine-dtb.cap \
+				$(dtbcapsulepkgdir)/usr/share/dtb-capsule/$$machine/$$machine-dtb.cap ; \
+			install -Dm644 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/config/$$machine/capsule.env \
+				$(dtbcapsulepkgdir)/usr/share/dtb-capsule/$$machine/capsule.env ; \
+		done ; \
+		install -Dm644 $(capsule_dir)/dtb-provenance-content-sha256sums.txt \
+			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/dtb-provenance-content-sha256sums.txt ; \
+		echo "$(abi_release)-$*" > $(capsule_dir)/expected-kver ; \
+		install -Dm644 $(capsule_dir)/expected-kver \
+			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/expected-kver ; \
+		install -Dm755 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/verify-capsule-result.sh \
+			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/verify-capsule-result.sh ; \
+		install -Dm755 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/dtb-capsule-motd.sh \
+			$(dtbcapsulepkgdir)/etc/update-motd.d/85-dtb-capsule ; \
+		install -Dm644 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/systemd/dtb-capsule-verify.service \
+			$(dtbcapsulepkgdir)/lib/systemd/system/dtb-capsule-verify.service ; \
+		cp $(CURDIR)/$(DEBIAN)/templates/dtb-capsule.postinst.in \
+			debian/$(dtb_capsule_pkg_name).postinst ; \
+		cp $(CURDIR)/$(DEBIAN)/templates/dtb-capsule.prerm.in \
+			debian/$(dtb_capsule_pkg_name).prerm ; \
+	fi
+ endif
 endif
 
 ifeq ($(no_dumpfile),)
@@ -599,6 +690,24 @@ ifeq ($(do_linux_tools),true)
 		$(call dh_all_inline,linux-bpf-dev) ; \
 	fi
   endif
+ endif
+endif
+
+ifeq ($(do_dtb_capsule),true)
+ ifneq ($(filter $(dtb_capsule_pkg_name),$(packages_enabled)),)
+	# Same non-per-flavour guard as linux-bpf-dev above. This package ships
+	# only a systemd unit (no sysvinit script), so — matching this repo's own
+	# compat-10 convention for systemd-only units (see the hv-*-daemon
+	# dh_systemd_enable/dh_systemd_start calls above) — dh_systemd_enable/
+	# dh_systemd_start wire the maintainer-script hooks directly, without
+	# dh_installinit (which is for init.d scripts). The unit's own
+	# ConditionPathExists keeps postinst-time start from doing anything until
+	# a capsule is actually staged.
+	if [ $* = $(firstword $(flavours)) ] ; then \
+		dh_systemd_enable -p$(dtb_capsule_pkg_name) --name dtb-capsule-verify ; \
+		dh_systemd_start -p$(dtb_capsule_pkg_name) --name dtb-capsule-verify ; \
+		$(call dh_all_inline,$(dtb_capsule_pkg_name)) ; \
+	fi
  endif
 endif
 

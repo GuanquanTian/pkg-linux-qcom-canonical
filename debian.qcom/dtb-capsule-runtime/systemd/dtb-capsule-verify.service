@@ -1,0 +1,18 @@
+[Unit]
+Description=Verify UEFI capsule DTB update result after boot
+After=multi-user.target
+# ConditionPathExists only checks the directory exists, not that it's
+# non-empty — firmware typically clears the directory's contents but leaves
+# the directory itself, so this alone does not stop the service from
+# re-running (and re-logging the same stale ESRT result) on every
+# subsequent boot. verify-capsule-result.sh guards against that itself via
+# a last-verified-kernel-version marker in /var/lib/dtb-capsule/.
+ConditionPathExists=/boot/efi/EFI/UpdateCapsule
+
+[Service]
+Type=oneshot
+ExecStart=/usr/share/dtb-capsule/verify-capsule-result.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
