@@ -109,6 +109,7 @@ bldinfo_pkg_name=linux-buildinfo-$(abi_release)
 hdrs_pkg_name=linux-headers-$(abi_release)
 rust_pkg_name=linux-lib-rust-$(abi_release)
 indep_hdrs_pkg_name=$(DEB_SOURCE)-headers-$(abi_release)
+dtb_capsule_pkg_name=dtb-capsule-$(abi_release)-qcom
 
 #
 # Similarly with the linux-source package, you need not build it as a developer. Its
