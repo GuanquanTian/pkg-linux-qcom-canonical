@@ -219,20 +219,28 @@ ifeq ($(do_dtb_capsule),true)
 	# inline-mode FIT image u-boot/GRUB reads from /usr/lib/firmware at
 	# normal OS boot. The two steps only share source .dtb/.dtbo files and
 	# the qcom-metadata.dts/qcom-next-fitimage.its inputs.
+	# The provenance manifest below is built from the installed device-tree
+	# dir (populated by dtbs_install above), so it only covers the final
+	# dtb-y targets actually shipped to the device, not .dtbo fragments that
+	# exist solely as overlay inputs. The same sha256 is also dropped into
+	# this flavour's linux-modules package so a running system can verify
+	# its installed DTB and linux-modules came from the same build.
 	if [ $* = $(firstword $(flavours)) ] ; then \
 		rm -rf $(capsule_dir) ; \
 		install -d $(capsule_dir)/dtb ; \
-		for f in $(build_dir)/arch/$(build_arch)/boot/dts/qcom/*.dtb \
-			 $(build_dir)/arch/$(build_arch)/boot/dts/qcom/*.dtbo ; do \
+		for f in $(pkgdir)/usr/lib/firmware/$(abi_release)-$*/device-tree/qcom/*.dtb \
+			 $(pkgdir)/usr/lib/firmware/$(abi_release)-$*/device-tree/qcom/*.dtbo ; do \
 			[ -e "$$f" ] && cp -p "$$f" $(capsule_dir)/dtb/ ; \
 		done ; \
 		( cd $(capsule_dir)/dtb && sha256sum *.dtb *.dtbo 2>/dev/null | sort -k2,2 ) \
 			> $(capsule_dir)/dtb-provenance-content-sha256sums.txt ; \
-		capsule_pkg_sha256=$$(sha256sum $(capsule_dir)/dtb-provenance-content-sha256sums.txt | cut -d' ' -f1) ; \
+		dtb_provenance_sha256=$$(sha256sum $(capsule_dir)/dtb-provenance-content-sha256sums.txt | cut -d' ' -f1) ; \
 		for dtb in $(capsule_dir)/dtb/*.dtb ; do \
 			[ -e "$$dtb" ] || continue ; \
-			fdtput -p -t s "$$dtb" /qcom-dtb-capsule-provenance kernel-pkg-sha256 "$$capsule_pkg_sha256" ; \
+			fdtput -p -t s "$$dtb" /qcom-dtb-capsule-provenance dtb-provenance-sha256 "$$dtb_provenance_sha256" ; \
 		done ; \
+		install -d $(pkgdir)/usr/lib/modules/$(abi_release)-$* ; \
+		echo "$$dtb_provenance_sha256" > $(pkgdir)/usr/lib/modules/$(abi_release)-$*/dtb-provenance-sha256 ; \
 		$(CURDIR)/$(DEBIAN)/fitimage/build-dtb-image.sh \
 			--dtb-src $(capsule_dir)/dtb \
 			--soc hamoa purwa \
@@ -275,6 +283,9 @@ ifeq ($(do_dtb_capsule),true)
 		echo "$(abi_release)-$*" > $(capsule_dir)/expected-kver ; \
 		install -Dm644 $(capsule_dir)/expected-kver \
 			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/expected-kver ; \
+		echo "$$dtb_provenance_sha256" > $(capsule_dir)/expected-dtb-sha256 ; \
+		install -Dm644 $(capsule_dir)/expected-dtb-sha256 \
+			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/expected-dtb-sha256 ; \
 		install -Dm755 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/verify-capsule-result.sh \
 			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/verify-capsule-result.sh ; \
 		install -Dm755 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/dtb-capsule-motd.sh \
