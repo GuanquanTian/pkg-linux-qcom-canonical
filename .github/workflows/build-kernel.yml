@@ -207,6 +207,7 @@ jobs:
         with:
           ref: ${{ inputs.ref != '' && inputs.ref || (inputs.kernel_version != '' && format('{0}-{1}', env.UPSTREAM_PREFIX, inputs.kernel_version) || inputs.suite || 'resolute-qcom-devel') }}
           path: kernel-src
+          persist-credentials: false
 
       # -----------------------------------------------------------------------
       # 4b. Merge additional PRs against resolute-qcom-devel into the
@@ -284,6 +285,35 @@ jobs:
           done
 
       # -----------------------------------------------------------------------
+      # 4c. Local version suffix for resolute-qcom-devel builds with commits
+      #     past the last Canonical sync tag, so they're distinguishable from
+      #     a plain rebuild of that tag. Skipped for resolute-qcom mirror and
+      #     kernel_version-pinned builds. Never fails the kernel build itself.
+      #
+      #     Checked out at main: CI scripts must come from the trusted
+      #     default branch, not whatever ref is being built. Matters most
+      #     for workflow_call from premerge-pr.yml, where github.sha is the
+      #     caller's resolute-qcom-devel merge commit, not main.
+      # -----------------------------------------------------------------------
+      - name: Checkout CI scripts
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          # Own path, matching kernel-src and docker-pkg-build: checking out
+          # to the workspace root would clean the whole workspace, deleting
+          # kernel-src.
+          path: ci-scripts
+          persist-credentials: false
+
+      - name: Apply Qualcomm local version suffix
+        env:
+          KERNEL_VERSION: ${{ inputs.kernel_version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash ./ci-scripts/scripts/apply-local-version-suffix.sh || \
+            echo "::warning::Local version suffix step failed; proceeding without it."
+
+      # -----------------------------------------------------------------------
       # 5. Checkout docker-pkg-build
       # -----------------------------------------------------------------------
       - name: Checkout docker-pkg-build
@@ -292,6 +322,7 @@ jobs:
           repository: qualcomm-linux/docker-pkg-build
           ref: main
           path: docker-pkg-build
+          persist-credentials: false
 
       # -----------------------------------------------------------------------
       # 6. Build the base-suite-matched pkg-builder docker image.
@@ -480,6 +511,7 @@ jobs:
             echo "| Architecture | \`${ARCH}\` |"
             echo "| Flavour      | \`${FLAVOURS}\` |"
             echo "| Dbgsym       | \`${DBGSYM}\` |"
+            echo "| Kernel version | \`${KERNEL_LOCAL_VERSION:-unmodified}\` |"
             echo "| Container    | \`ghcr.io/qualcomm-linux/pkg-builder:${BASE_SUITE}\` |"
             echo "| Runner       | \`${RUNNER_NAME}\` |"
             if [ -n "${DEVEL_PRS}" ]; then
