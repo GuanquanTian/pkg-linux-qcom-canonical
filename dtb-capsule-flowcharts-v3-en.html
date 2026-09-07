@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DTB UEFI Capsule Update - Flowcharts (v3)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .flowchart-section {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .flowchart-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #0066cc;
+            padding-bottom: 10px;
+        }
+
+        .flowchart-section h3 {
+            margin: 25px 0 15px;
+            color: #444;
+            font-size: 15px;
+        }
+
+        svg {
+            display: block;
+            margin: 0 auto;
+            background: white;
+        }
+
+        /* Flowchart styles */
+        .box {
+            fill: #e3f2fd;
+            stroke: #0066cc;
+            stroke-width: 2;
+        }
+
+        .box-success {
+            fill: #e8f5e9;
+            stroke: #4caf50;
+            stroke-width: 2;
+        }
+
+        .box-warning {
+            fill: #fff3e0;
+            stroke: #ff9800;
+            stroke-width: 2;
+        }
+
+        .box-error {
+            fill: #ffebee;
+            stroke: #f44336;
+            stroke-width: 2;
+        }
+
+        .box-decision {
+            fill: #f3e5f5;
+            stroke: #9c27b0;
+            stroke-width: 2;
+        }
+
+        .box-neutral {
+            fill: #f5f5f5;
+            stroke: #757575;
+            stroke-width: 2;
+            stroke-dasharray: 4,3;
+        }
+
+        .box-text {
+            font-size: 13px;
+            font-weight: 500;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            fill: #333;
+        }
+
+        .label-text {
+            font-size: 12px;
+            fill: #666;
+            text-anchor: middle;
+        }
+
+        .arrow {
+            stroke: #333;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .arrow-yes {
+            stroke: #4caf50;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead-yes);
+        }
+
+        .arrow-no {
+            stroke: #f44336;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead-no);
+        }
+
+        .arrow-other {
+            stroke: #9c27b0;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead-other);
+        }
+
+        .label-yes {
+            font-size: 11px;
+            font-weight: 700;
+            fill: #4caf50;
+            text-anchor: middle;
+        }
+
+        .label-no {
+            font-size: 11px;
+            font-weight: 700;
+            fill: #f44336;
+            text-anchor: middle;
+        }
+
+        .label-other {
+            font-size: 11px;
+            font-weight: 700;
+            fill: #9c27b0;
+            text-anchor: middle;
+        }
+
+        .legend {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            font-size: 13px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 2px;
+            border: 2px solid;
+        }
+
+        .legend-box.process {
+            background: #e3f2fd;
+            border-color: #0066cc;
+        }
+
+        .legend-box.success {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+
+        .legend-box.warning {
+            background: #fff3e0;
+            border-color: #ff9800;
+        }
+
+        .legend-box.error {
+            background: #ffebee;
+            border-color: #f44336;
+        }
+
+        .legend-box.decision {
+            background: #f3e5f5;
+            border-color: #9c27b0;
+        }
+
+        .legend-box.neutral {
+            background: #f5f5f5;
+            border-color: #757575;
+        }
+
+        .description {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #0066cc;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .case-table-wrap {
+            margin-top: 15px;
+        }
+
+        .case-table {
+            width: auto;
+            max-width: 760px;
+            border-collapse: collapse;
+            margin-right: auto;
+            font-size: 12px;
+        }
+
+        .case-table.wide {
+            max-width: 1150px;
+        }
+
+        .case-table th,
+        .case-table td {
+            border: 1px solid #ddd;
+            padding: 6px 10px;
+            text-align: left;
+        }
+
+        .case-table th {
+            background: #f0f0f0;
+        }
+
+        .case-table .state-cell {
+            font-weight: 600;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        .case-table tr.static-row {
+            background-color: #e8f5e9;
+        }
+
+        .case-table tr.live-row {
+            background-color: #fff3e0;
+        }
+
+        .case-table tr.derived-row {
+            background-color: #f3e5f5;
+        }
+
+        /* State classification row colors */
+        .case-table tr.success-row {
+            background-color: #e8f5e9;
+        }
+
+        .case-table tr.pending-row {
+            background-color: #fff3e0;
+        }
+
+        .case-table tr.warning-row {
+            background-color: #ffe0b2;
+        }
+
+        .case-table tr.error-row {
+            background-color: #ffebee;
+        }
+
+        .case-table tr.unknown-row {
+            background-color: #f5f5f5;
+        }
+
+        .case-table-caption {
+            font-size: 12px;
+            color: #555;
+            margin-top: 8px;
+            max-width: 1150px;
+        }
+
+        .transition-diagram {
+            margin: 20px 0;
+        }
+
+        .transition-diagram h4 {
+            margin-bottom: 10px;
+            color: #444;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DTB UEFI Capsule Update - Flowcharts (v3)</h1>
+        <p class="subtitle">Full pipeline: build time, install time, and the two-phase runtime verification state machine (Phase 1/2) with Case 1&#x2013;8 and transitions<br/>
+        <strong>Updated: 2026-09-07</strong></p>
+
+        <!-- Value Reference -->
+        <div class="flowchart-section">
+            <h2>Value Reference</h2>
+            <p class="description" style="margin-top:0;">
+                Every sha256 variable used below, in one place, so later sections don't need to be re-derived from scratch. "Static" means written once at build time and never recomputed; "live" means read fresh from hardware/firmware state each time it's checked.
+            </p>
+            <div class="case-table-wrap">
+                <table class="case-table wide">
+                    <tr>
+                        <th>Variable</th>
+                        <th>Read from</th>
+                        <th>Belongs to</th>
+                        <th>Static or live</th>
+                        <th>Used in</th>
+                    </tr>
+                    <tr class="static-row"><td class="state-cell">DTB_CAPSULE_EXPECTED_KVER</td><td><code>expected-kver</code></td><td>the dtb-capsule package itself</td><td>static</td><td>postinst and verify script to determine the target kernel version this capsule is meant for</td></tr>
+                    <tr class="static-row"><td class="state-cell">DTB_CAPSULE_EXPECTED_SHA</td><td><code>expected-dtb-sha256</code></td><td>the dtb-capsule package itself</td><td>static</td><td>postinst's build-consistency check and its content-already-matches skip-staging check</td></tr>
+                    <tr class="static-row"><td class="state-cell">MODULES_DTB_SHA</td><td><code>dtb-provenance-sha256</code></td><td><code>linux-modules-&lt;DTB_CAPSULE_EXPECTED_KVER&gt;</code>, for the <em>target</em> kver</td><td>static</td><td>postinst's build-consistency check; verify script's staging-skip disambiguation</td></tr>
+                    <tr class="live-row"><td class="state-cell">RUNNING_KVER</td><td><code>uname -r</code></td><td>the kernel actually running right now</td><td>live</td><td>verify script to determine which kernel is currently executing; used to cross-check against DTB_CAPSULE_EXPECTED_KVER and to read the corresponding linux-modules package</td></tr>
+                    <tr class="live-row"><td class="state-cell">RUNNING_INSTALLED_DTB_SHA</td><td><code>dtb-provenance-sha256</code></td><td><code>linux-modules-&lt;RUNNING_KVER&gt;</code>, for the kernel actually running right now</td><td>live</td><td>the verify script's <code>RUNNING_DTB_MATCHES_INSTALLED_MODULES</code> computation</td></tr>
+                    <tr class="live-row"><td class="state-cell">RUNNING_DTB_SHA</td><td>devicetree node <code>qcom-dtb-capsule-provenance/dtb-provenance-sha256</code></td><td>live hardware/firmware state</td><td>live</td><td>postinst's content-already-matches skip-staging check; the verify script throughout</td></tr>
+                    <tr class="derived-row"><td class="state-cell">RUNNING_DTB_MATCHES_INSTALLED_MODULES</td><td>derived: <code>RUNNING_DTB_SHA == RUNNING_INSTALLED_DTB_SHA</code></td><td>n/a (comparison result)</td><td>derived at runtime</td><td>Field 1's evidence-insufficient fallback; Field 2's entry gate</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- State Classification Summary -->
+        <div class="flowchart-section">
+            <h2>State Classification Summary</h2>
+            <p class="description" style="margin-top:0;">
+                The verification script uses a <strong>two-phase state classification system</strong> to determine the capsule update status. Each phase produces a state value that is written to <code>last-verify-state</code> for consumption by MOTD, recovery services, and monitoring tools.
+            </p>
+
+            <h3>Phase 1: kver_match_state (Kernel Version Matching)</h3>
+            <p class="description">
+                Determines whether the installed dtb-capsule package's target kernel matches the currently running kernel. This phase is always executed.
+            </p>
+            <div class="case-table-wrap">
+                <table class="case-table">
+                    <tr>
+                        <th>State Value</th>
+                        <th>Meaning</th>
+                        <th>Priority</th>
+                        <th>Auto-Recovery</th>
+                        <th>Next Phase</th>
+                    </tr>
+                    <tr class="success-row"><td class="state-cell"><strong>ok</strong></td><td>Kernel version matches</td><td>✅ OK</td><td>—</td><td>Proceed to Phase 2</td></tr>
+                    <tr class="pending-row"><td class="state-cell"><strong>reboot_pending</strong></td><td>Awaiting reboot into target kernel (first detection)</td><td>⏳ PENDING</td><td>✗</td><td>Exit</td></tr>
+                    <tr class="warning-row"><td class="state-cell"><strong>reboot_stalled</strong></td><td>Rebooted but still not in target kernel</td><td>⚠️ WARNING</td><td>✓ (if matching kernel found)</td><td>Exit</td></tr>
+                    <tr class="warning-row"><td class="state-cell"><strong>no_capsule_for_running_kernel</strong></td><td>No capsule targets running kernel, but its DTB is self-consistent</td><td>ℹ️ INFO</td><td>✗</td><td>Exit</td></tr>
+                    <tr class="error-row"><td class="state-cell"><strong>kernel_dtb_mismatch</strong></td><td>Running kernel's DTB doesn't match its package</td><td>❌ ERROR</td><td>✓ (if matching kernel found)</td><td>Exit</td></tr>
+                    <tr class="error-row"><td class="state-cell"><strong>package_mismatch</strong></td><td>Target kernel's package is in abnormal dpkg state</td><td>❌ ERROR</td><td>✗</td><td>Exit</td></tr>
+                    <tr class="unknown-row"><td class="state-cell"><strong>unknown</strong></td><td>Cannot determine (missing provenance data)</td><td>❓ UNKNOWN</td><td>✗</td><td>Exit</td></tr>
+                </table>
+            </div>
+
+            <h3>Phase 2: dtb_pairing_state (DTB Pairing Status)</h3>
+            <p class="description">
+                Only executed when <code>kver_match_state=ok</code>. Determines whether firmware correctly paired the running kernel with the correct DTB content.
+            </p>
+            <div class="case-table-wrap">
+                <table class="case-table">
+                    <tr>
+                        <th>State Value</th>
+                        <th>Meaning</th>
+                        <th>Priority</th>
+                        <th>Auto-Recovery</th>
+                        <th>Action</th>
+                    </tr>
+                    <tr class="success-row"><td class="state-cell"><strong>apply_confirmed</strong></td><td>Capsule applied and verified ✓</td><td>✅ OK</td><td>✗</td><td>Success</td></tr>
+                    <tr class="pending-row"><td class="state-cell"><strong>pending</strong></td><td>Capsule not yet confirmed applied</td><td>⏳ PENDING</td><td>✗</td><td>Wait for firmware</td></tr>
+                    <tr class="error-row"><td class="state-cell"><strong>apply_failed</strong></td><td>Firmware reported capsule apply failed</td><td>❌ ERROR</td><td>✗</td><td>Manual intervention</td></tr>
+                    <tr class="warning-row"><td class="state-cell"><strong>apply_failed_with_rollback_available</strong></td><td>Apply failed but matching kernel exists</td><td>⚠️ WARNING</td><td>✓</td><td>Auto-recover</td></tr>
+                    <tr class="warning-row"><td class="state-cell"><strong>suspected_dtb_rollback</strong></td><td>Firmware kept/reverted to previous DTB</td><td>⚠️ WARNING</td><td>✓</td><td>Auto-recover</td></tr>
+                    <tr class="error-row"><td class="state-cell"><strong>content_mismatch_localized</strong></td><td>DTB content doesn't match package</td><td>❌ ERROR</td><td>✗</td><td>Investigate</td></tr>
+                    <tr class="unknown-row"><td class="state-cell"><strong>unknown</strong></td><td>Cannot determine (missing data)</td><td>❓ UNKNOWN</td><td>✗</td><td>Investigate</td></tr>
+                </table>
+            </div>
+
+            <h3>Auto-Recovery Trigger Points</h3>
+            <p class="description">
+                The verification script automatically triggers kernel recovery in these scenarios:
+            </p>
+            <div class="case-table-wrap">
+                <table class="case-table">
+                    <tr>
+                        <th>#</th>
+                        <th>Trigger Condition</th>
+                        <th>Action</th>
+                        <th>Code Location</th>
+                    </tr>
+                    <tr><td>1</td><td><code>reboot_stalled</code> + matching kernel found</td><td>Call <code>run_auto_recovery()</code></td><td>Line 240, 245</td></tr>
+                    <tr><td>2</td><td><code>kernel_dtb_mismatch</code> + matching kernel found</td><td>Call <code>run_auto_recovery()</code></td><td>Line 268</td></tr>
+                    <tr><td>3</td><td><code>suspected_dtb_rollback</code></td><td>Call <code>run_auto_recovery()</code></td><td>Line 434</td></tr>
+                    <tr><td>4</td><td><code>apply_failed_with_rollback_available</code> + matching kernel found</td><td>Call <code>run_auto_recovery()</code></td><td>Line 448</td></tr>
+                </table>
+            </div>
+
+            <h3>Key Judgment Points</h3>
+            <div class="case-table-wrap">
+                <table class="case-table">
+                    <tr>
+                        <th>Judgment</th>
+                        <th>Method</th>
+                        <th>Purpose</th>
+                    </tr>
+                    <tr><td><strong>check_reboot_stall()</strong></td><td>Compare <code>boot_id</code> from <code>/proc/sys/kernel/random/boot_id</code></td><td>Distinguish reboot_pending (same boot) from reboot_stalled (different boot)</td></tr>
+                    <tr><td><strong>RUNNING_DTB_MATCHES_INSTALLED_MODULES</strong></td><td>Compare <code>RUNNING_DTB_SHA</code> with <code>RUNNING_INSTALLED_DTB_SHA</code></td><td>Check if running kernel's DTB is self-consistent</td></tr>
+                    <tr><td><strong>ESRT_CONFIRMED</strong></td><td>Check ESRT entry: <code>status=0</code> AND <code>fw_version == last_attempt_version</code></td><td>Verify firmware successfully applied capsule</td></tr>
+                    <tr><td><strong>ROLLBACK_TARGET_KVER</strong></td><td>Scan all kernels in <code>/usr/lib/modules/</code>, find DTB matching <code>RUNNING_DTB_SHA</code></td><td>Identify candidate kernel for automatic recovery</td></tr>
+                </table>
+            </div>
+
+            <h3>State Output File</h3>
+            <p class="description">
+                All state information is written to <code>/var/lib/dtb-capsule/last-verify-state</code> in key=value format. The <code>rollback_target_kver</code> and <code>rollback_target_available</code> fields are always emitted (even empty) so downstream consumers can safely test <code>-n "$rollback_target_kver"</code>. These fields are populated in <code>reboot_stalled</code>, <code>kernel_dtb_mismatch</code>, <code>suspected_dtb_rollback</code>, and <code>apply_failed_with_rollback_available</code> states when a matching kernel is found.
+            </p>
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 12px;">timestamp=2026-09-07T12:34:56Z
+boot_id=12345678-1234-1234-1234-123456789012
+kver=5.15.0-1-generic
+kver_match_state=ok
+dtb_pairing_state=apply_confirmed
+guid_conflict=false
+esrt_dedup_skipped=false
+rollback_target_kver=
+rollback_target_available=
+dtb_kver_content_match=ok
+detail="provenance sha256 match"
+summary="OK: capsule applied and verified"</pre>
+        </div>
+
+        <!-- Flowchart 1: Build Time -->
+        <div class="flowchart-section">
+            <h2>1. Build Time</h2>
+            <svg width="100%" height="600" viewBox="0 0 800 600">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                    </marker>
+                    <marker id="arrowhead-yes" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#4caf50" />
+                    </marker>
+                </defs>
+
+                <rect class="box" x="250" y="20" width="300" height="50" rx="5"/>
+                <text class="box-text" x="400" y="45">1. Collect installed .dtb/.dtbo files</text>
+
+                <line class="arrow" x1="400" y1="70" x2="400" y2="100"/>
+
+                <rect class="box" x="250" y="100" width="300" height="50" rx="5"/>
+                <text class="box-text" x="400" y="125">2. Compute provenance sha256</text>
+
+                <line class="arrow" x1="400" y1="150" x2="400" y2="180"/>
+
+                <rect class="box" x="200" y="180" width="400" height="50" rx="5"/>
+                <text class="box-text" x="400" y="198" style="font-size: 11px;">3. Embed provenance sha256 in DTB + linux-modules</text>
+                <text class="box-text" x="400" y="216" style="font-size: 11px;">+ dtb-capsule pkg (expected-dtb-sha256)</text>
+
+                <line class="arrow" x1="400" y1="230" x2="400" y2="260"/>
+
+                <rect class="box" x="230" y="260" width="340" height="50" rx="5"/>
+                <text class="box-text" x="400" y="285">4. Build SoC-filtered FIT DTB image (&#x2264;4MB)</text>
+
+                <line class="arrow" x1="400" y1="310" x2="400" y2="340"/>
+
+                <rect class="box" x="200" y="340" width="400" height="50" rx="5"/>
+                <text class="box-text" x="400" y="365">5. Generate signed capsule per platform (hamoa, purwa)</text>
+
+                <line class="arrow" x1="400" y1="390" x2="400" y2="420"/>
+
+                <rect class="box-success" x="250" y="420" width="300" height="50" rx="5"/>
+                <text class="box-text" x="400" y="445">6. Package into dtb-capsule-*.deb</text>
+
+                <line class="arrow" x1="400" y1="470" x2="400" y2="500"/>
+                <rect class="box-success" x="200" y="500" width="400" height="50" rx="5"/>
+                <text class="box-text" x="400" y="525">&#x2713; Output: dtb-capsule-&lt;kver&gt;-qcom.deb</text>
+            </svg>
+            <div class="description">
+                <strong>Key points:</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>The provenance sha256 is the backbone of the whole pipeline, embedded in both the DTB itself and the modules package</li>
+                    <li>The same provenance sha256 is written to three destinations in one step: the DTB itself (<code>fdtput</code>), <code>linux-modules-&lt;kver&gt;/dtb-provenance-sha256</code>, and the dtb-capsule package's own <code>expected-dtb-sha256</code> &#x2014; computed once, copied three places. No runtime re-hashing is needed anywhere downstream; postinst and the runtime verifier can just read these files</li>
+                    <li>SoC filtering (<code>--soc hamoa purwa</code>) keeps dtb.bin under the 4MB partition limit</li>
+                    <li>Each platform (hamoa, purwa) gets an independently signed capsule; DTB content is flavour-agnostic, so it's built only once</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Flowchart 2: Install Time -->
+        <div class="flowchart-section">
+            <h2>2. Install Time</h2>
+            <svg width="100%" height="1070" viewBox="0 0 1050 1070">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                    </marker>
+                    <marker id="arrowhead-yes" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#4caf50" />
+                    </marker>
+                    <marker id="arrowhead-no" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#f44336" />
+                    </marker>
+                </defs>
+
+                <!-- Start -->
+                <rect class="box" x="300" y="20" width="300" height="50" rx="5"/>
+                <text class="box-text" x="450" y="45">dpkg -i dtb-capsule-*.deb</text>
+
+                <line class="arrow" x1="450" y1="70" x2="450" y2="100"/>
+
+                <!-- Clear old verify state -->
+                <rect class="box" x="300" y="100" width="300" height="50" rx="5"/>
+                <text class="box-text" x="450" y="125">Clear old verify state (last-verify-state)</text>
+
+                <line class="arrow" x1="450" y1="150" x2="450" y2="180"/>
+
+                <!-- Clear stale flag -->
+                <rect class="box" x="300" y="180" width="300" height="60" rx="5"/>
+                <text class="box-text" x="450" y="200">Clear stale IsCapsulePending flag</text>
+                <text class="box-text" x="450" y="218">(reset efivar 0x01 &#x2192; 0x00)</text>
+
+                <line class="arrow" x1="450" y1="240" x2="450" y2="270"/>
+
+                <!-- Decision 1: linux-modules installed -->
+                <polygon class="box-decision" points="450,270 550,320 450,370 350,320"/>
+                <text class="box-text" x="450" y="315">linux-modules-&lt;kver&gt;</text>
+                <text class="box-text" x="450" y="330">installed?</text>
+
+                <line class="arrow-no" x1="550" y1="320" x2="650" y2="320"/>
+                <text class="label-no" x="600" y="312">No</text>
+                <rect class="box-error" x="650" y="295" width="260" height="50" rx="5"/>
+                <text class="box-text" x="780" y="310">ERROR: not installed</text>
+                <text class="box-text" x="780" y="325">install fails (exit 1)</text>
+
+                <line class="arrow-yes" x1="450" y1="370" x2="450" y2="400"/>
+                <text class="label-yes" x="464" y="389">Yes</text>
+
+                <!-- Decision 1b: package build consistency check -->
+                <polygon class="box-decision" points="450,395 570,450 450,505 330,450"/>
+                <text class="box-text" x="450" y="430" style="font-size: 11px;">pkg's own expected-dtb-sha256</text>
+                <text class="box-text" x="450" y="445" style="font-size: 11px;">(DTB_CAPSULE_EXPECTED_SHA) ==</text>
+                <text class="box-text" x="450" y="460" style="font-size: 11px;">linux-modules-&lt;kver&gt;'s</text>
+                <text class="box-text" x="450" y="475" style="font-size: 11px;">dtb-provenance-sha256?</text>
+
+                <line class="arrow-no" x1="570" y1="450" x2="650" y2="450"/>
+                <text class="label-no" x="600" y="442">No</text>
+                <rect class="box-error" x="650" y="420" width="260" height="60" rx="5"/>
+                <text class="box-text" x="780" y="440">ERROR: build mismatch</text>
+                <text class="box-text" x="780" y="458">install fails (exit 1)</text>
+
+                <line class="arrow-yes" x1="450" y1="505" x2="450" y2="530"/>
+                <text class="label-yes" x="464" y="519">Yes</text>
+
+                <!-- Decision 2: ESRT GUID match count -->
+                <polygon class="box-decision" points="450,525 570,580 450,635 330,580"/>
+                <text class="box-text" x="450" y="565" style="font-size: 11px;">this pkg's bundled platforms'</text>
+                <text class="box-text" x="450" y="580" style="font-size: 11px;">FMP_GUID vs device ESRT</text>
+                <text class="box-text" x="450" y="595" style="font-size: 11px;">fw_class: match count?</text>
+
+                <line class="arrow-no" x1="330" y1="580" x2="150" y2="580"/>
+                <text class="label-no" x="300" y="572">No</text>
+                <rect class="box-warning" x="30" y="555" width="240" height="50" rx="5"/>
+                <text class="box-text" x="150" y="570">0: skip staging</text>
+                <text class="box-text" x="150" y="585">(no matching GUID)</text>
+
+                <line class="arrow-no" x1="570" y1="580" x2="750" y2="580"/>
+                <text class="label-no" x="600" y="572">No</text>
+                <rect class="box-warning" x="650" y="555" width="260" height="50" rx="5"/>
+                <text class="box-text" x="780" y="570">&gt;1: skip staging</text>
+                <text class="box-text" x="780" y="585">(records last-guid-conflict)</text>
+
+                <line class="arrow-yes" x1="450" y1="635" x2="450" y2="660"/>
+                <text class="label-yes" x="464" y="649">Yes</text>
+
+                <!-- content-already-matches decision (checked first, per postinst) -->
+                <polygon class="box-decision" points="450,660 560,720 450,780 340,720"/>
+                <text class="box-text" x="450" y="695" style="font-size: 11px;">pkg's own expected-dtb-sha256</text>
+                <text class="box-text" x="450" y="710" style="font-size: 11px;">(DTB_CAPSULE_EXPECTED_SHA) ==</text>
+                <text class="box-text" x="450" y="725" style="font-size: 11px;">currently-running DTB's</text>
+                <text class="box-text" x="450" y="740" style="font-size: 11px;">embedded sha256</text>
+                <text class="box-text" x="450" y="755" style="font-size: 11px;">(RUNNING_DTB_SHA)?</text>
+
+                <line class="arrow-yes" x1="560" y1="720" x2="650" y2="720"/>
+                <text class="label-yes" x="605" y="712">Yes</text>
+                <rect class="box-success" x="650" y="680" width="260" height="80" rx="5"/>
+                <text class="box-text" x="777" y="705">skip staging</text>
+                <text class="box-text" x="777" y="723">(rm CAPSULE_DIR/qcom-dtb-*.cap)</text>
+                <text class="box-text" x="777" y="741">return 0</text>
+
+                <line class="arrow-no" x1="450" y1="780" x2="450" y2="810"/>
+                <text class="label-no" x="464" y="799">No</text>
+
+                <!-- Stage capsule: always rm+copy; log a note if an old unconsumed capsule existed -->
+                <rect class="box" x="130" y="810" width="640" height="105" rx="5"/>
+                <text class="box-text" x="450" y="832">Stage capsule: rm old .cap(s) &#x2192; copy new .cap into</text>
+                <text class="box-text" x="450" y="848" style="font-size:11px;">CAPSULE_DIR = /boot/efi/EFI/UpdateCapsule/qcom-dtb-&lt;kver&gt;.cap</text>
+                <text class="box-text" x="450" y="866" style="font-size:11px;">If an old unconsumed capsule was there with OsIndications bit unset,</text>
+                <text class="box-text" x="450" y="884" style="font-size:11px;">log a note that firmware likely never processed it</text>
+
+                <line class="arrow" x1="450" y1="915" x2="450" y2="945"/>
+
+                <!-- Set OsIndications -->
+                <rect class="box-success" x="280" y="945" width="340" height="60" rx="5"/>
+                <text class="box-text" x="450" y="965">Set OsIndications capsule-delivery bit</text>
+                <text class="box-text" x="450" y="983">(efivar -w, read back to verify)</text>
+            </svg>
+            <div class="description">
+                <strong>Key points:</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>A defense-in-depth check confirms linux-modules is installed; if not (e.g. bypassed via <code>--force-depends</code>), the install fails (exit 1)</li>
+                    <li>Package build consistency is checked right here at install time: <code>DTB_CAPSULE_EXPECTED_SHA</code> (this package's own <code>expected-dtb-sha256</code>) must match <code>linux-modules-&lt;kver&gt;/dtb-provenance-sha256</code> (<code>MODULES_DTB_SHA</code>) &#x2014; if they differ, the two packages were built at different times and must not be paired; the install fails (exit 1) rather than staging a capsule that a later reboot would only then reveal as mismatched. This is the sole enforcement point &#x2014; if it's bypassed (e.g. <code>--force-depends</code>), the mismatch isn't silently lost: it still surfaces after reboot as a <code>content_mismatch_localized</code> verdict (Case 2 in the Runtime Case Summary table), just without the specific "build mismatch" diagnosis</li>
+                    <li>ESRT GUID matching compares each platform bundled inside this dtb-capsule package (its <code>capsule.env</code> <code>FMP_GUID</code>) against this device's ESRT <code>fw_class</code> entries (which firmware components this device can actually accept capsule updates for) &#x2014; a three-way decision: 0 matches, exactly 1 match, or &gt;1 matches (conflict, recorded to <code>last-guid-conflict</code>) &#x2014; staging proceeds only on exactly 1 match</li>
+                    <li><code>DTB_CAPSULE_EXPECTED_SHA</code> is read directly from this package's own <code>expected-dtb-sha256</code> file (shipped by the build, see below &#x2014; not re-hashed here); <code>RUNNING_DTB_SHA</code> is the provenance sha256 already embedded in the DTB <em>the device booted with right now</em> (read from devicetree). If the running DTB already matches this package's bundled DTB (<code>RUNNING_DTB_SHA == DTB_CAPSULE_EXPECTED_SHA</code>), staging is skipped outright &#x2014; and any leftover <code>.cap</code> in <code>CAPSULE_DIR</code> from a previous attempt is cleared right there, so the next boot's verifier doesn't mistake it for an unconsumed capsule (<code>reboot_pending</code> false positive)</li>
+                    <li>Staging always clears any old <code>.cap</code> in <code>CAPSULE_DIR</code> before copying the new one in &#x2014; there is no separate branch that leaves an old capsule in place; the only variation is whether a diagnostic note is logged (if an old unconsumed capsule was found with the OsIndications bit unset, meaning firmware likely never processed it)</li>
+                    <li><code>expected-dtb-sha256</code> is written once at build time directly into the dtb-capsule package (from the same <code>dtb-provenance-content-sha256sums.txt</code> the package carries) &#x2014; nothing downstream re-derives or rewrites it; both decision boxes above just read the shipped value as-is</li>
+                    <li>The OsIndications bit is read back and verified after writing, not just trusted from efivar's own exit code</li>
+                </ul>
+            </div>
+
+            <div class="case-table-wrap">
+                <table class="case-table wide">
+                    <tr>
+                        <th>Case</th>
+                        <th>Scenario</th>
+                        <th>Outcome</th>
+                    </tr>
+                    <tr><td>A</td><td><code>linux-modules-&lt;kver&gt;</code> not installed (e.g. <code>--force-depends</code>)</td><td>&#x2717; Error, install fails (exit 1)</td></tr>
+                    <tr><td>B</td><td>Build hash mismatch: <code>DTB_CAPSULE_EXPECTED_SHA</code> &#x2260; <code>MODULES_DTB_SHA</code></td><td>&#x2717; Error, install fails (exit 1)</td></tr>
+                    <tr><td>C</td><td>0 packaged platforms' FMP_GUID match this device's ESRT entries</td><td>&#x26A0; Skip staging (no matching GUID)</td></tr>
+                    <tr><td>D</td><td>&gt;1 packaged platforms' FMP_GUID match this device's ESRT entries</td><td>&#x26A0; Skip staging (ambiguous, recorded to <code>last-guid-conflict</code>)</td></tr>
+                    <tr><td>E</td><td>Exactly 1 match, and <code>RUNNING_DTB_SHA == DTB_CAPSULE_EXPECTED_SHA</code> (content already matches)</td><td>&#x2713; Skip staging (no-op), clears any stale <code>.cap</code></td></tr>
+                    <tr><td>F</td><td>Exactly 1 match, content differs</td><td>&#x2713; Stage capsule, set OsIndications bit (normal path)</td></tr>
+                </table>
+                <p class="case-table-caption">Case B replaces what used to be checked only at runtime ("Case 0") &#x2014; the build-consistency check now runs here, before any capsule is staged, so a mismatched pairing is caught immediately rather than after a wasted reboot.</p>
+            </div>
+        </div>
+
+        <!-- Flowchart 3: Runtime Verification -->
+        <div class="flowchart-section">
+            <h2>3. Runtime Verification</h2>
+            <p class="description" style="margin-top:0;">
+                Two phases are written to <code>last-verify-state</code>. <strong>Phase 1</strong> (<code>kver_match_state</code>) asks "does the installed dtb-capsule package's target match the kernel running right now?" using dpkg records and <code>CAPSULE_DIR</code> &#x2014; deliberately direction-agnostic: EXPECTED may name a kernel that's newer (an upgrade not yet rebooted into) or older (a rollback target) than RUNNING, and both are handled by the same check. <strong>Phase 2</strong> (<code>dtb_pairing_state</code>, only reached once Phase 1 = <code>ok</code>) asks "did firmware pair the running kernel with the correct DTB content?" using ESRT and a scan of installed kernels &#x2014; content is checked first, and ESRT is consulted only to diagnose a mismatch. Package build consistency (dtb-capsule vs. its target <code>linux-modules-&lt;kver&gt;</code>) is enforced once, earlier, at install time (see the Install Time Case table, Case B) &#x2014; it is not re-checked here.
+            </p>
+
+            <h3>3a. kver_match_state (Phase 1)</h3>
+            <svg width="100%" height="840" viewBox="0 0 1200 840">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                    </marker>
+                    <marker id="arrowhead-yes" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#4caf50" />
+                    </marker>
+                    <marker id="arrowhead-no" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#f44336" />
+                    </marker>
+                </defs>
+
+                <!-- P0 -->
+                <rect class="box" x="290" y="20" width="420" height="50" rx="5"/>
+                <text class="box-text" x="500" y="45">Read DTB_CAPSULE_EXPECTED_KVER (package target) &amp; RUNNING_KVER</text>
+
+                <line class="arrow" x1="500" y1="70" x2="500" y2="100"/>
+
+                <!-- D1 -->
+                <polygon class="box-decision" points="500,100 610,150 500,200 390,150"/>
+                <text class="box-text" x="500" y="142" style="font-size:11px;">DTB_CAPSULE_EXPECTED_KVER empty</text>
+                <text class="box-text" x="500" y="157" style="font-size:11px;">OR RUNNING==EXPECTED?</text>
+
+                <line class="arrow-yes" x1="610" y1="150" x2="815" y2="150"/>
+                <text class="label-yes" x="700" y="142">Yes</text>
+                <rect class="box-success" x="815" y="125" width="330" height="50" rx="5"/>
+                <text class="box-text" x="980" y="140">kver_match_state=ok</text>
+                <text class="box-text" x="980" y="157">&#x2192; proceed to Phase 2 (3b)</text>
+
+                <line class="arrow-no" x1="500" y1="200" x2="500" y2="230"/>
+                <text class="label-no" x="516" y="219">No</text>
+
+                <!-- D2 -->
+                <polygon class="box-decision" points="500,230 610,285 500,340 390,285"/>
+                <text class="box-text" x="500" y="277" style="font-size:11px;">EXPECTED's dpkg record</text>
+                <text class="box-text" x="500" y="292" style="font-size:11px;">exists but NOT</text>
+                <text class="box-text" x="500" y="307" style="font-size:11px;">install-ok-installed?</text>
+
+                <line class="arrow-yes" x1="610" y1="285" x2="815" y2="285"/>
+                <text class="label-yes" x="700" y="277">Yes</text>
+                <rect class="box-error" x="815" y="260" width="330" height="50" rx="5"/>
+                <text class="box-text" x="980" y="275">package_mismatch</text>
+                <text class="box-text" x="980" y="292" style="font-size:11px;">(exit &#x2014; device/package mismatch)</text>
+
+                <line class="arrow-no" x1="500" y1="340" x2="500" y2="370"/>
+                <text class="label-no" x="516" y="359">No</text>
+
+                <!-- D3 -->
+                <polygon class="box-decision" points="500,365 620,430 500,495 380,430"/>
+                <text class="box-text" x="500" y="405" style="font-size:11px;">CAPSULE_DIR non-empty,</text>
+                <text class="box-text" x="500" y="420" style="font-size:11px;">OR MODULES_DTB_SHA ==</text>
+                <text class="box-text" x="500" y="435" style="font-size:11px;">RUNNING_DTB_SHA (staging</text>
+                <text class="box-text" x="500" y="450" style="font-size:11px;">was skipped, content already</text>
+                <text class="box-text" x="500" y="465" style="font-size:11px;">== EXPECTED)?</text>
+
+                <line class="arrow-yes" x1="620" y1="430" x2="815" y2="430"/>
+                <text class="label-yes" x="700" y="422">Yes</text>
+                <rect class="box-warning" x="815" y="395" width="330" height="70" rx="5"/>
+                <text class="box-text" x="980" y="418">check_reboot_stall() &#x2192;</text>
+                <text class="box-text" x="980" y="436">reboot_pending / reboot_stalled</text>
+                <text class="box-text" x="980" y="451" style="font-size:10px;">(EXPECTED may be newer OR older)</text>
+
+                <line class="arrow-no" x1="500" y1="495" x2="500" y2="525"/>
+                <text class="label-no" x="516" y="514">No</text>
+
+                <!-- D4 -->
+                <polygon class="box-decision" points="500,520 610,575 500,630 390,575"/>
+                <text class="box-text" x="500" y="567" style="font-size:11px;">RUNNING_DTB_MATCHES_INSTALLED_MODULES</text>
+                <text class="box-text" x="500" y="582" style="font-size:11px;">(running kernel's own</text>
+                <text class="box-text" x="500" y="597" style="font-size:11px;">content)?</text>
+
+                <line class="arrow-other" x1="390" y1="575" x2="230" y2="575"/>
+                <text class="label-other" x="310" y="567" style="font-size:10px;">ok</text>
+                <rect class="box-warning" x="20" y="535" width="290" height="80" rx="5"/>
+                <text class="box-text" x="165" y="560">no_capsule_for_running_kernel</text>
+                <text class="box-text" x="165" y="578" style="font-size:11px;">(different kernel, running</text>
+                <text class="box-text" x="165" y="596" style="font-size:11px;">kernel's content self-consistent)</text>
+
+                <line class="arrow-no" x1="610" y1="575" x2="815" y2="575"/>
+                <text class="label-no" x="700" y="567">mismatch</text>
+                <rect class="box-error" x="815" y="550" width="330" height="50" rx="5"/>
+                <text class="box-text" x="980" y="570">kernel_dtb_mismatch</text>
+
+                <line class="arrow" x1="500" y1="630" x2="500" y2="660"/>
+                <text class="label-text" x="545" y="649" style="font-weight:700;">unknown</text>
+                <rect class="box-warning" x="330" y="660" width="340" height="50" rx="5"/>
+                <text class="box-text" x="500" y="680">kver_match_state=unknown</text>
+                <text class="box-text" x="500" y="697">(no provenance data available)</text>
+
+                <!-- Bottom note -->
+                <rect class="box-neutral" x="225" y="750" width="700" height="60" rx="5"/>
+                <text class="box-text" x="575" y="772">On reaching kver_match_state=ok (fresh or deferred):</text>
+                <text class="box-text" x="575" y="790">clear the reboot-pending-since tracking file (see 3c)</text>
+            </svg>
+
+            <div class="case-table-wrap">
+                <table class="case-table">
+                    <tr>
+                        <th>#</th>
+                        <th>DTB_CAPSULE_EXPECTED_KVER</th>
+                        <th>EXPECTED dpkg record</th>
+                        <th>CAPSULE_DIR / staging-skipped</th>
+                        <th>RUNNING_DTB_MATCHES_INSTALLED_MODULES</th>
+                        <th>kver_match_state</th>
+                    </tr>
+                    <tr><td>1</td><td>empty, or == RUNNING_KVER</td><td>&#x2014;</td><td>&#x2014;</td><td>&#x2014;</td><td class="state-cell">ok</td></tr>
+                    <tr><td>2</td><td>set, &#x2260; RUNNING_KVER</td><td>exists, not install-ok-installed</td><td>&#x2014;</td><td>&#x2014;</td><td class="state-cell">package_mismatch</td></tr>
+                    <tr><td>3</td><td>set, &#x2260; RUNNING_KVER</td><td>ok / missing</td><td>pending / skipped-staging</td><td>&#x2014;</td><td class="state-cell">reboot_pending / reboot_stalled</td></tr>
+                    <tr><td>4</td><td>set, &#x2260; RUNNING_KVER</td><td>ok / missing</td><td>no</td><td>ok</td><td class="state-cell">no_capsule_for_running_kernel</td></tr>
+                    <tr><td>5</td><td>set, &#x2260; RUNNING_KVER</td><td>ok / missing</td><td>no</td><td>mismatch</td><td class="state-cell">kernel_dtb_mismatch</td></tr>
+                    <tr><td>6</td><td>set, &#x2260; RUNNING_KVER</td><td>ok / missing</td><td>no</td><td>unknown</td><td class="state-cell">unknown (no provenance marker)</td></tr>
+                </table>
+                <p class="case-table-caption">There is deliberately no "version direction" column &#x2014; EXPECTED can legitimately name a kernel that is either newer or older than RUNNING, and rows 3&#x2013;6 treat both the same way. Row 6 is the "evidence insufficient" exit, landing on <code>ok</code> so Phase 2's content self-consistency check can speak instead of guessing.</p>
+            </div>
+
+            <h3>3b. dtb_pairing_state (Phase 2, only reached once kver_match_state=ok)</h3>
+            <svg width="100%" height="1350" viewBox="0 0 1400 1350">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                    </marker>
+                    <marker id="arrowhead-yes" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#4caf50" />
+                    </marker>
+                    <marker id="arrowhead-no" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#f44336" />
+                    </marker>
+                </defs>
+
+                <rect class="box" x="350" y="20" width="300" height="50" rx="5"/>
+                <text class="box-text" x="500" y="45">Entry: kver_match_state=ok</text>
+
+                <line class="arrow" x1="500" y1="70" x2="500" y2="100"/>
+
+                <polygon class="box-decision" points="500,100 600,150 500,200 400,150"/>
+                <text class="box-text" x="500" y="142">RUNNING_DTB_MATCHES_INSTALLED_MODULES</text>
+                <text class="box-text" x="500" y="157">== ok?</text>
+
+                <line class="arrow-yes" x1="600" y1="150" x2="800" y2="150"/>
+                <text class="label-yes" x="700" y="142">Yes</text>
+                <rect class="box-success" x="800" y="120" width="320" height="60" rx="5"/>
+                <text class="box-text" x="960" y="142">dtb_pairing_state=apply_confirmed &#x2713;</text>
+                <text class="box-text" x="960" y="160" style="font-size:11px;">(content match wins regardless of ESRT)</text>
+
+                <line class="arrow-no" x1="500" y1="200" x2="500" y2="230"/>
+                <text class="label-no" x="514" y="219">No</text>
+
+                <polygon class="box-decision" points="500,230 600,280 500,330 400,280"/>
+                <text class="box-text" x="500" y="270">no ESRT match, OR</text>
+                <text class="box-text" x="500" y="285">CAPSULE_DIR non-empty?</text>
+
+                <line class="arrow-yes" x1="600" y1="280" x2="800" y2="280"/>
+                <text class="label-yes" x="700" y="272">Yes</text>
+                <rect class="box-warning" x="800" y="255" width="320" height="50" rx="5"/>
+                <text class="box-text" x="960" y="275">dtb_pairing_state=pending</text>
+
+                <line class="arrow-no" x1="500" y1="330" x2="500" y2="360"/>
+                <text class="label-no" x="514" y="349">No</text>
+
+                <polygon class="box-decision" points="500,360 600,410 500,460 400,410"/>
+                <text class="box-text" x="500" y="402">RUNNING_DTB_SHA empty?</text>
+                <text class="box-text" x="500" y="417" style="font-size:10px;">(no provenance node in devicetree)</text>
+
+                <line class="arrow-yes" x1="600" y1="410" x2="800" y2="410"/>
+                <text class="label-yes" x="700" y="402">Yes</text>
+                <rect class="box-warning" x="800" y="385" width="320" height="50" rx="5"/>
+                <text class="box-text" x="960" y="405">dtb_pairing_state=unknown</text>
+                <text class="box-text" x="960" y="422" style="font-size:10px;">(no provenance node)</text>
+
+                <line class="arrow-no" x1="500" y1="460" x2="500" y2="490"/>
+                <text class="label-no" x="514" y="479">No</text>
+
+                <polygon class="box-decision" points="500,490 600,540 500,590 400,540"/>
+                <text class="box-text" x="500" y="532">RUNNING_DTB_MATCHES_INSTALLED_MODULES</text>
+                <text class="box-text" x="500" y="547" style="font-size:10px;">== unknown?</text>
+
+                <line class="arrow-yes" x1="600" y1="540" x2="800" y2="540"/>
+                <text class="label-yes" x="700" y="532">Yes</text>
+                <rect class="box-warning" x="800" y="515" width="320" height="50" rx="5"/>
+                <text class="box-text" x="960" y="535">dtb_pairing_state=unknown</text>
+                <text class="box-text" x="960" y="552" style="font-size:10px;">(no marker in own package)</text>
+
+                <line class="arrow-no" x1="500" y1="590" x2="500" y2="620"/>
+                <text class="label-no" x="514" y="609" style="font-size:10px;">No (mismatch, provenance present)</text>
+
+                <rect class="box" x="350" y="620" width="300" height="60" rx="5"/>
+                <text class="box-text" x="500" y="642">Scan every OTHER installed kernel's</text>
+                <text class="box-text" x="500" y="660">dtb-provenance-sha256 == RUNNING_DTB_SHA?</text>
+
+                <line class="arrow" x1="500" y1="680" x2="500" y2="710"/>
+
+                <polygon class="box-decision" points="500,710 600,760 500,810 400,760"/>
+                <text class="box-text" x="500" y="752">match found among</text>
+                <text class="box-text" x="500" y="767">other installed kernels?</text>
+
+                <line class="arrow-yes" x1="600" y1="760" x2="800" y2="760"/>
+                <text class="label-yes" x="700" y="752">Yes</text>
+                <rect class="box-error" x="800" y="735" width="320" height="50" rx="5"/>
+                <text class="box-text" x="960" y="752">dtb_pairing_state=suspected_dtb_rollback</text>
+                <text class="box-text" x="960" y="769" style="font-size:10px;">(rollback_target_kver=X)</text>
+
+                <line class="arrow-no" x1="500" y1="810" x2="500" y2="840"/>
+                <text class="label-no" x="514" y="829">No</text>
+
+                <polygon class="box-decision" points="500,840 600,890 500,940 400,890"/>
+                <text class="box-text" x="500" y="885">ESRT_CONFIRMED</text>
+                <text class="box-text" x="500" y="900" style="font-size:10px;">== 0?</text>
+
+                <line class="arrow-yes" x1="600" y1="890" x2="800" y2="890"/>
+                <text class="label-yes" x="710" y="882">Yes</text>
+
+                <!-- Sub-decision: check for rollback target -->
+                <polygon class="box-decision" points="800,840 900,890 800,940 700,890"/>
+                <text class="box-text" x="800" y="882">ROLLBACK_TARGET_KVER</text>
+                <text class="box-text" x="800" y="897" style="font-size:10px;">found?</text>
+
+                <line class="arrow-yes" x1="900" y1="890" x2="1000" y2="890"/>
+                <text class="label-yes" x="950" y="882">Yes</text>
+                <rect class="box-warning" x="1000" y="865" width="320" height="50" rx="5"/>
+                <text class="box-text" x="1160" y="882">dtb_pairing_state=apply_failed_with_rollback_available</text>
+
+                <line class="arrow-no" x1="800" y1="940" x2="800" y2="970"/>
+                <text class="label-no" x="814" y="959">No</text>
+                <rect class="box-error" x="700" y="970" width="320" height="50" rx="5"/>
+                <text class="box-text" x="860" y="990">dtb_pairing_state=apply_failed</text>
+
+                <line class="arrow-no" x1="500" y1="940" x2="500" y2="970"/>
+                <text class="label-no" x="514" y="959">No</text>
+
+                <rect class="box" x="350" y="1020" width="300" height="60" rx="5"/>
+                <text class="box-text" x="500" y="1042">Localize: diff each packaged .dtb/.dtbo</text>
+                <text class="box-text" x="500" y="1060">sha256 against the build-time manifest</text>
+
+                <line class="arrow" x1="500" y1="1080" x2="500" y2="1110"/>
+
+                <rect class="box-error" x="320" y="1110" width="360" height="50" rx="5"/>
+                <text class="box-text" x="500" y="1135">dtb_pairing_state=content_mismatch_localized</text>
+            </svg>
+
+            <h3>3c. reboot_stalled persistence tracking (check_reboot_stall)</h3>
+            <svg width="100%" height="480" viewBox="0 0 1050 480">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                    </marker>
+                    <marker id="arrowhead-yes" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#4caf50" />
+                    </marker>
+                    <marker id="arrowhead-no" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#f44336" />
+                    </marker>
+                </defs>
+
+                <rect class="box" x="220" y="20" width="460" height="50" rx="5"/>
+                <text class="box-text" x="450" y="45">reboot_pending point reached (DTB_CAPSULE_EXPECTED_KVER, BOOT_ID)</text>
+
+                <line class="arrow" x1="450" y1="70" x2="450" y2="100"/>
+
+                <polygon class="box-decision" points="450,100 550,150 450,200 350,150"/>
+                <text class="box-text" x="450" y="140" style="font-size:11px;">no tracking file, OR tracked</text>
+                <text class="box-text" x="450" y="157" style="font-size:11px;">expected_kver != DTB_CAPSULE_EXPECTED_KVER?</text>
+
+                <line class="arrow-yes" x1="550" y1="150" x2="680" y2="150"/>
+                <text class="label-yes" x="615" y="142">Yes</text>
+                <rect class="box-warning" x="680" y="110" width="280" height="80" rx="5"/>
+                <text class="box-text" x="820" y="135">(Re)write file:</text>
+                <text class="box-text" x="820" y="153" style="font-size:12px;">expected_kver + first_boot_id=BOOT_ID</text>
+                <text class="box-text" x="820" y="171">&#x2192; reboot_pending</text>
+
+                <line class="arrow-no" x1="450" y1="200" x2="450" y2="230"/>
+                <text class="label-no" x="464" y="219">No</text>
+
+                <polygon class="box-decision" points="450,230 550,280 450,330 350,280"/>
+                <text class="box-text" x="450" y="272">tracked_first_boot_id</text>
+                <text class="box-text" x="450" y="287">== BOOT_ID?</text>
+
+                <line class="arrow-yes" x1="550" y1="280" x2="680" y2="280"/>
+                <text class="label-yes" x="615" y="272">Yes</text>
+                <rect class="box-warning" x="680" y="255" width="220" height="50" rx="5"/>
+                <text class="box-text" x="790" y="275">reboot_pending</text>
+                <text class="box-text" x="790" y="292" style="font-size:10px;">(same boot; file untouched)</text>
+
+                <line class="arrow-no" x1="450" y1="330" x2="450" y2="360"/>
+                <text class="label-no" x="464" y="349">No</text>
+
+                <rect class="box-error" x="300" y="360" width="300" height="80" rx="5"/>
+                <text class="box-text" x="450" y="385">reboot_stalled</text>
+                <text class="box-text" x="450" y="403" style="font-size:11px;">(rebooted &#x2265;1x, still not matching;</text>
+                <text class="box-text" x="450" y="420" style="font-size:11px;">file NOT updated &#x2014; keeps original first_boot_id)</text>
+            </svg>
+
+            <div class="description">
+                <strong>Key points:</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li><strong>3a (kver_match_state):</strong> direction-agnostic &#x2014; splits into <code>package_mismatch</code>, <code>reboot_pending</code>/<code>reboot_stalled</code>, <code>no_capsule_for_running_kernel</code>, and <code>kernel_dtb_mismatch</code>. Whenever DTB self-consistency itself is unknown, it defers to Phase 2 instead of guessing</li>
+                    <li><strong>3b (dtb_pairing_state):</strong> content is checked first &#x2014; a match short-circuits to <code>apply_confirmed</code> regardless of ESRT. On mismatch, every other installed kernel's provenance sha256 is scanned first to name a <code>suspected_dtb_rollback</code> target; only if no match is found does ESRT decide between <code>apply_failed_with_rollback_available</code> (if a matching kernel exists) and <code>apply_failed</code> (if no match)</li>
+                    <li><strong>3c (reboot_stalled tracking):</strong> keyed on <code>boot_id</code> so clock skew can't distort it; deliberately left untouched once escalated to <code>reboot_stalled</code>, so the state keeps escalating consistently across further reboots</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Case Summary Table -->
+        <div class="flowchart-section">
+            <h2>4. Case Summary (Case 1&#x2013;8)</h2>
+            <p class="description" style="margin-top:0;">Every runtime scenario the design accounts for, in the order Phase 1/2 would actually reach them.</p>
+            <div class="case-table-wrap">
+                <table class="case-table wide">
+                    <tr>
+                        <th>Case</th>
+                        <th>Scenario</th>
+                        <th>kver_match_state</th>
+                        <th>dtb_pairing_state</th>
+                        <th>Overall</th>
+                    </tr>
+                    <tr><td>1</td><td>Matched linux-image/module + dtb-capsule install</td><td class="state-cell">ok</td><td class="state-cell">apply_confirmed</td><td>&#x2713; Normal</td></tr>
+                    <tr><td>2</td><td>Matched install, but content mismatched (ESRT false success, or DTB altered)</td><td class="state-cell">ok</td><td class="state-cell">content_mismatch_localized</td><td>&#x2717; Error</td></tr>
+                    <tr><td>3</td><td>linux-image/module only, dtb-capsule never installed</td><td class="state-cell">ok</td><td class="state-cell">apply_confirmed</td><td>&#x2713; Normal</td></tr>
+                    <tr><td>4</td><td>Kernel upgraded, DTB not updated along with it</td><td class="state-cell">kernel_dtb_mismatch</td><td>&#x2014;</td><td>&#x2717; Error</td></tr>
+                    <tr><td>5</td><td>New dtb-capsule installed, matching linux-image/module not yet installed/rebooted (incl. 5b: staging skipped, content already matches)</td><td class="state-cell">reboot_pending / reboot_stalled</td><td>&#x2014;</td><td>&#x23F3; Pending</td></tr>
+                    <tr><td>6</td><td>DTB manually reflashed, dtb-capsule never installed</td><td class="state-cell">ok</td><td class="state-cell">suspected_dtb_rollback / apply_failed</td><td>&#x2717; Error</td></tr>
+                    <tr><td>7</td><td>Kernel upgraded, DTB content unchanged &#x2014; postinst skipped staging</td><td class="state-cell">ok</td><td class="state-cell">apply_confirmed</td><td>&#x2713; Normal</td></tr>
+                    <tr><td>8</td><td>linux-modules-&lt;RUNNING_KVER&gt; has been removed; no provenance marker to check against</td><td class="state-cell">ok</td><td class="state-cell">unknown</td><td>? Cannot verify</td></tr>
+                </table>
+                <p class="case-table-caption">Package build-consistency mismatches (dtb-capsule vs. its target <code>linux-modules-&lt;kver&gt;</code>) are now caught earlier, at install time &#x2014; see the Install Time Case table, Case B &#x2014; so they no longer appear as a runtime case here. Case 5's variant 5b is detected via <code>MODULES_DTB_SHA == RUNNING_DTB_SHA</code> rather than a non-empty <code>CAPSULE_DIR</code>.</p>
+            </div>
+        </div>
+
+        <!-- Kernel Rollback Recovery Flow -->
+        <div class="flowchart-section">
+            <h2>4. Kernel Rollback Recovery Flow</h2>
+            <p class="description" style="margin-top:0;">
+                When kernel/DTB pairing is mismatched (kernel_dtb_mismatch, reboot_stalled, apply_failed, or suspected_dtb_rollback),
+                verify-capsule-result.sh checks if a matching kernel exists. If found, dtb-capsule-recovery --auto scans installed kernels
+                to find one whose DTB matches the running DTB, then updates GRUB to boot that kernel on next reboot, converging the device back to a known-good state.
+            </p>
+
+            <svg width="100%" height="750" viewBox="0 0 1000 750">
+                <defs>
+                    <marker id="arrowhead-rb" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                    </marker>
+                    <marker id="arrowhead-yes-rb" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#4caf50" />
+                    </marker>
+                    <marker id="arrowhead-no-rb" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#f44336" />
+                    </marker>
+                </defs>
+
+                <!-- Start -->
+                <rect class="box-error" x="300" y="20" width="400" height="60" rx="5"/>
+                <text class="box-text" x="500" y="45">kernel_dtb_mismatch or reboot_stalled detected</text>
+                <text class="box-text" x="500" y="62" style="font-size:11px;">verify-capsule-result.sh calls dtb-capsule-recovery --auto</text>
+
+                <line class="arrow" x1="500" y1="80" x2="500" y2="110"/>
+
+                <!-- Read running DTB -->
+                <rect class="box" x="300" y="110" width="400" height="50" rx="5"/>
+                <text class="box-text" x="500" y="135">Read running DTB's provenance sha256</text>
+
+                <line class="arrow" x1="500" y1="160" x2="500" y2="190"/>
+
+                <!-- Decision: Check for matching kernel -->
+                <polygon class="box-decision" points="500,190 600,240 500,290 400,240"/>
+                <text class="box-text" x="500" y="240">matching kernel</text>
+                <text class="box-text" x="500" y="255">exists?</text>
+
+                <line class="arrow-no" x1="400" y1="240" x2="250" y2="240"/>
+                <text class="label-no" x="320" y="232">No</text>
+                <rect class="box-error" x="80" y="215" width="220" height="50" rx="5"/>
+                <text class="box-text" x="190" y="235">ERROR: no matching</text>
+                <text class="box-text" x="190" y="252" style="font-size:10px;">kernel found</text>
+
+                <line class="arrow-yes" x1="500" y1="290" x2="500" y2="320"/>
+                <text class="label-yes" x="514" y="309">Yes</text>
+
+                <!-- Scan kernels -->
+                <rect class="box" x="300" y="320" width="400" height="60" rx="5"/>
+                <text class="box-text" x="500" y="342">Scan all installed kernels</text>
+                <text class="box-text" x="500" y="360" style="font-size:11px;">compare each kernel's dtb-provenance-sha256</text>
+                <text class="box-text" x="500" y="376" style="font-size:11px;">against running DTB sha256</text>
+
+                <line class="arrow" x1="500" y1="380" x2="500" y2="410"/>
+
+                <!-- Decision: Match found -->
+                <polygon class="box-decision" points="500,460 600,510 500,560 400,510"/>
+                <text class="box-text" x="500" y="510">matching kernel</text>
+                <text class="box-text" x="500" y="525">found?</text>
+
+                <line class="arrow-no" x1="600" y1="510" x2="750" y2="510"/>
+                <text class="label-no" x="680" y="502">No</text>
+                <rect class="box-error" x="750" y="485" width="200" height="50" rx="5"/>
+                <text class="box-text" x="850" y="505">ERROR: no kernel</text>
+                <text class="box-text" x="850" y="522" style="font-size:10px;">matches running DTB</text>
+
+                <line class="arrow-yes" x1="500" y1="560" x2="500" y2="590"/>
+                <text class="label-yes" x="514" y="579">Yes</text>
+
+                <!-- Select latest -->
+                <rect class="box-warning" x="300" y="590" width="400" height="50" rx="5"/>
+                <text class="box-text" x="500" y="615">Select latest matching kernel version</text>
+
+                <line class="arrow" x1="500" y1="640" x2="500" y2="670"/>
+
+                <!-- Update GRUB -->
+                <rect class="box-success" x="250" y="670" width="500" height="60" rx="5"/>
+                <text class="box-text" x="500" y="692">Update GRUB default boot entry</text>
+                <text class="box-text" x="500" y="710" style="font-size:11px;">grub-set-default + update /etc/default/grub + update-grub</text>
+            </svg>
+
+            <div class="description">
+                <strong>Key points:</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li><strong>Automatic trigger:</strong> verify-capsule-result.sh checks for matching kernel before invoking dtb-capsule-recovery --auto on <code>kernel_dtb_mismatch</code>, <code>reboot_stalled</code>, <code>suspected_dtb_rollback</code>, or <code>apply_failed_with_rollback_available</code></li>
+                    <li><strong>Matching kernel check:</strong> Scans /usr/lib/modules for kernels whose dtb-provenance-sha256 matches the running DTB's sha256</li>
+                    <li><strong>Kernel scan:</strong> Iterates through all installed kernels in version order, comparing each kernel's dtb-provenance-sha256 against the running DTB's sha256</li>
+                    <li><strong>Latest selection:</strong> When multiple kernels match, selects the highest version number</li>
+                    <li><strong>GRUB persistence:</strong> Updates both grub-set-default (EFI variable) and /etc/default/grub (config file), then calls update-grub to regenerate grub.cfg</li>
+                    <li><strong>Convergence:</strong> Device reboots into the selected kernel, which has matching DTB content, converging to apply_confirmed state</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Case Transition Diagrams -->
+        <div class="flowchart-section">
+            <h2>5. Case Transition Diagrams</h2>
+
+            <div class="transition-diagram">
+                <h4>Normal upgrade: Case 1 &#x2192; Case 5 &#x2192; Case 1</h4>
+                <svg width="100%" height="140" viewBox="0 0 820 140">
+                    <defs>
+                        <marker id="arrowhead-t1" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                        </marker>
+                    </defs>
+                    <rect class="box-success" x="20" y="40" width="160" height="50" rx="5"/>
+                    <text class="box-text" x="100" y="60">Case 1</text>
+                    <text class="box-text" x="100" y="76" style="font-size:11px;">apply_confirmed</text>
+
+                    <line class="arrow" x1="180" y1="65" x2="320" y2="65"/>
+                    <text class="label-text" x="250" y="50" style="font-size:11px;">install new dtb-capsule</text>
+
+                    <rect class="box-warning" x="320" y="40" width="160" height="50" rx="5"/>
+                    <text class="box-text" x="400" y="60">Case 5</text>
+                    <text class="box-text" x="400" y="76" style="font-size:11px;">reboot_pending</text>
+
+                    <line class="arrow" x1="480" y1="65" x2="580" y2="65"/>
+                    <text class="label-text" x="530" y="50">reboot</text>
+
+                    <rect class="box-success" x="580" y="40" width="200" height="50" rx="5"/>
+                    <text class="box-text" x="680" y="60">Case 1</text>
+                    <text class="box-text" x="680" y="76" style="font-size:11px;">apply_confirmed (new kver)</text>
+                </svg>
+            </div>
+
+            <div class="transition-diagram">
+                <h4>Kernel upgraded without a matching capsule: Case 1 &#x2192; Case 4</h4>
+                <svg width="100%" height="140" viewBox="0 0 600 140">
+                    <defs>
+                        <marker id="arrowhead-t2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                        </marker>
+                    </defs>
+                    <rect class="box-success" x="20" y="40" width="160" height="50" rx="5"/>
+                    <text class="box-text" x="100" y="60">Case 1</text>
+                    <text class="box-text" x="100" y="76" style="font-size:11px;">apply_confirmed</text>
+
+                    <line class="arrow" x1="180" y1="65" x2="300" y2="65"/>
+                    <text class="label-text" x="240" y="37" style="font-size:11px;">install linux-image only,</text>
+                    <text class="label-text" x="240" y="50" style="font-size:11px;">no new dtb-capsule</text>
+
+                    <rect class="box-error" x="300" y="40" width="180" height="50" rx="5"/>
+                    <text class="box-text" x="390" y="60">Case 4</text>
+                    <text class="box-text" x="390" y="76" style="font-size:11px;">kernel_dtb_mismatch</text>
+                </svg>
+            </div>
+
+            <div class="transition-diagram">
+                <h4>Manual DTB reflash, then dtb-capsule install: Case 6 &#x2192; Case 1 &#x2192; Case 7</h4>
+                <svg width="100%" height="140" viewBox="0 0 900 140">
+                    <defs>
+                        <marker id="arrowhead-t3" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                            <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                        </marker>
+                    </defs>
+                    <rect class="box" x="20" y="40" width="160" height="50" rx="5"/>
+                    <text class="box-text" x="100" y="60">Case 1</text>
+                    <text class="box-text" x="100" y="76" style="font-size:11px;">apply_confirmed</text>
+
+                    <line class="arrow" x1="180" y1="65" x2="280" y2="65"/>
+                    <text class="label-text" x="230" y="50" style="font-size:11px;">manual DTB flash</text>
+
+                    <rect class="box-error" x="280" y="40" width="180" height="50" rx="5"/>
+                    <text class="box-text" x="370" y="60">Case 6</text>
+                    <text class="box-text" x="370" y="76" style="font-size:11px;">suspected_dtb_rollback</text>
+
+                    <line class="arrow" x1="460" y1="65" x2="680" y2="65"/>
+                    <text class="label-text" x="570" y="45" style="font-size:11px;">auto-recovery triggers</text>
+                    <text class="label-text" x="570" y="58" style="font-size:11px;">reboot with matching kernel</text>
+
+                    <rect class="box-success" x="680" y="40" width="180" height="50" rx="5"/>
+                    <text class="box-text" x="770" y="60">Case 1</text>
+                    <text class="box-text" x="770" y="76" style="font-size:11px;">apply_confirmed</text>
+                </svg>
+            </div>
+
+            <div class="description">
+                Case transitions confirm the state machine is direction-agnostic and idempotent: whichever case a device is in, installing the correct capsule package for the running kernel and rebooting (if needed) always converges back to an <code>apply_confirmed</code> case (1/3/7), never leaving a dead end.
+            </div>
+        </div>
+
+        <!-- Flowchart 6: End-to-End -->
+        <div class="flowchart-section">
+            <h2>6. End-to-End</h2>
+            <svg width="100%" height="500" viewBox="0 0 1000 500">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <polygon points="0 0, 10 3, 0 6" fill="#333" />
+                    </marker>
+                </defs>
+
+                <!-- Stage 1: Build -->
+                <g>
+                    <rect class="box" x="20" y="50" width="140" height="86" rx="5"/>
+                    <text class="box-text" x="90" y="85">Build</text>
+                    <text class="box-text" x="90" y="105">Time</text>
+                    <text class="box-text" x="90" y="125" style="font-size:11px;">Generate capsule pkg</text>
+                </g>
+
+                <line class="arrow" x1="160" y1="90" x2="200" y2="90"/>
+                <text class="label-text" x="180" y="40">dtb-capsule-*.deb</text>
+
+                <!-- Stage 2: Install -->
+                <g>
+                    <rect class="box" x="200" y="50" width="140" height="86" rx="5"/>
+                    <text class="box-text" x="270" y="85">Install</text>
+                    <text class="box-text" x="270" y="105">Time</text>
+                    <text class="box-text" x="270" y="125">Stage capsule</text>
+                </g>
+
+                <line class="arrow" x1="340" y1="90" x2="380" y2="90"/>
+                <text class="label-text" x="360" y="40">dpkg -i</text>
+
+                <!-- Stage 3: Reboot -->
+                <g>
+                    <rect class="box-warning" x="380" y="50" width="140" height="86" rx="5"/>
+                    <text class="box-text" x="450" y="85">Reboot</text>
+                    <text class="box-text" x="450" y="125">Firmware applies</text>
+                </g>
+
+                <line class="arrow" x1="520" y1="90" x2="560" y2="90"/>
+                <text class="label-text" x="540" y="40">firmware</text>
+
+                <!-- Stage 4: Verify -->
+                <g>
+                    <rect class="box-success" x="560" y="50" width="140" height="86" rx="5"/>
+                    <text class="box-text" x="630" y="85">Runtime</text>
+                    <text class="box-text" x="630" y="125">Verify result</text>
+                </g>
+
+                <line class="arrow" x1="700" y1="90" x2="740" y2="90"/>
+                <text class="label-text" x="720" y="40">systemd</text>
+
+                <!-- Stage 5: Display -->
+                <g>
+                    <rect class="box-success" x="740" y="50" width="140" height="86" rx="5"/>
+                    <text class="box-text" x="810" y="85">Login</text>
+                    <text class="box-text" x="810" y="105">Time</text>
+                    <text class="box-text" x="810" y="125">MOTD display</text>
+                </g>
+
+                <!-- Below: key data flows -->
+                <g>
+                    <text class="label-text" x="50" y="200" style="font-weight: bold; font-size: 14px;">Key data flows:</text>
+
+                    <circle cx="90" cy="250" r="5" fill="#0066cc"/>
+                    <text class="label-text" x="110" y="255" style="text-anchor: start;">dtb_provenance_sha256</text>
+                    <text class="label-text" x="110" y="270" style="text-anchor: start;">embedded in DTB + linux-modules + dtb-capsule pkg (expected-dtb-sha256)</text>
+
+                    <circle cx="90" cy="320" r="5" fill="#0066cc"/>
+                    <text class="label-text" x="110" y="325" style="text-anchor: start;">&lt;machine&gt;-dtb.cap</text>
+                    <text class="label-text" x="110" y="340" style="text-anchor: start;">signed UEFI capsule</text>
+
+                    <circle cx="90" cy="390" r="5" fill="#0066cc"/>
+                    <text class="label-text" x="110" y="395" style="text-anchor: start;">ESRT result</text>
+                    <text class="label-text" x="110" y="410" style="text-anchor: start;">firmware apply status</text>
+
+                    <circle cx="500" cy="250" r="5" fill="#4caf50"/>
+                    <text class="label-text" x="520" y="255" style="text-anchor: start;">last-verify-state</text>
+                    <text class="label-text" x="520" y="270" style="text-anchor: start;">kver_match_state, dtb_pairing_state</text>
+
+                    <circle cx="500" cy="320" r="5" fill="#4caf50"/>
+                    <text class="label-text" x="520" y="325" style="text-anchor: start;">reboot-pending-since</text>
+                    <text class="label-text" x="520" y="340" style="text-anchor: start;">boot_id-keyed reboot_stalled tracking</text>
+
+                    <circle cx="500" cy="390" r="5" fill="#4caf50"/>
+                    <text class="label-text" x="520" y="395" style="text-anchor: start;">journalctl -t dtb-capsule-verify</text>
+                    <text class="label-text" x="520" y="410" style="text-anchor: start;">detailed verification log</text>
+                </g>
+            </svg>
+            <div class="description">
+                <strong>Full-pipeline overview:</strong>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li><strong>Build time:</strong> generate the signed capsule package, embedding provenance info into the DTB, linux-modules, and the dtb-capsule package itself</li>
+                    <li><strong>Install time:</strong> select the platform via ESRT GUID matching, skip staging when content already matches, otherwise stage the capsule to the EFI partition</li>
+                    <li><strong>Reboot:</strong> firmware reads the capsule from the EFI partition and flashes the DTB partition</li>
+                    <li><strong>Runtime:</strong> a systemd service checks kver_match_state (Phase 1), then dtb_pairing_state (Phase 2); package build consistency between dtb-capsule and linux-modules is enforced once, at install time, not re-checked here</li>
+                    <li><strong>Login time:</strong> MOTD surfaces the verification result so admins see it at a glance</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="flowchart-section">
+            <h2>Legend</h2>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-box process"></div>
+                    <span>Process step</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box success"></div>
+                    <span>Success / done</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box warning"></div>
+                    <span>Pending / warning</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box error"></div>
+                    <span>Error / failure</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box decision"></div>
+                    <span>Decision point</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box neutral"></div>
+                    <span>Fall-through / no verdict yet</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

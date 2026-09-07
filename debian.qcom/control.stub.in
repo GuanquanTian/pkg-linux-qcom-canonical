@@ -99,6 +99,7 @@ Architecture: arm64
 Section: admin
 Priority: optional
 Depends: ${misc:Depends}, linux-modules-PKGVER-ABINUM-qcom
+Recommends: grub2-common
 Provides: dtb-capsule-qcom
 Conflicts: dtb-capsule-qcom
 Replaces: dtb-capsule-qcom

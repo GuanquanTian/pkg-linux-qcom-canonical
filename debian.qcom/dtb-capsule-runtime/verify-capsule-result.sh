@@ -49,6 +49,9 @@ DEVICE_TREE_DIR="${DEVICE_TREE_DIR:-/usr/lib/firmware/${RUNNING_KVER}/device-tre
 
 mkdir -p "$STATE_DIR"
 
+# Unified ESRT cache: kver, confirmed status, and detail message.
+LAST_ESRT_CACHE_FILE="${STATE_DIR}/last-esrt-cache"
+
 # Reports whether the last install/upgrade skipped capsule staging due to an
 # ambiguous ESRT FMP_GUID match across packaged platforms.
 GUID_CONFLICT="false"
@@ -113,6 +116,23 @@ fi
 DTB_CAPSULE_EXPECTED_SHA=""
 [ -n "$DTB_CAPSULE_EXPECTED_KVER" ] && DTB_CAPSULE_EXPECTED_SHA="$(dtb_provenance_sha256_for_kver "$DTB_CAPSULE_EXPECTED_KVER" 2>/dev/null || echo "")"
 
+RECOVERY_TOOL="${RECOVERY_TOOL:-/usr/sbin/dtb-capsule-recovery}"
+# Best-effort GRUB default switch to a kernel matching the running DTB.
+run_auto_recovery() {
+    [ -x "$RECOVERY_TOOL" ] || return 0
+    "$RECOVERY_TOOL" --auto 2>&1 | while IFS= read -r _line; do log "$_line"; done
+}
+
+# Scan all installed kernels once for a match against RUNNING_DTB_SHA.
+# Result is reused across all Phase 1 branches to avoid repeated scans.
+# Ties resolve to the highest-versioned match.
+ROLLBACK_TARGET_KVER=""
+for _kver in $(ls "$MODULES_DIR" 2>/dev/null | sort -V); do
+    [ "$_kver" != "$RUNNING_KVER" ] || continue
+    _kver_sha="$(dtb_provenance_sha256_for_kver "$_kver" 2>/dev/null || echo "")"
+    [ -n "$_kver_sha" ] && [ "$_kver_sha" = "$RUNNING_DTB_SHA" ] && ROLLBACK_TARGET_KVER="$_kver"
+done
+
 # dtb_kver_content_match: whether the running DTB's provenance sha256 matches
 # the linux-modules-<kver> package installed for RUNNING_KVER right now.
 RUNNING_DTB_MATCHES_INSTALLED_MODULES="unknown"
@@ -144,6 +164,8 @@ summary_for_state() {
             echo "PENDING: capsule not yet confirmed applied by firmware" ;;
         ok:apply_failed)
             echo "ERROR: firmware reported the capsule update failed" ;;
+        ok:apply_failed_with_rollback_available)
+            echo "WARNING: firmware reported capsule apply failed, but automatic recovery to a matching kernel is available" ;;
         ok:suspected_dtb_rollback)
             echo "WARNING: suspected DTB rollback - firmware kept/reverted to a previous DTB despite reporting apply success" ;;
         ok:apply_confirmed)
@@ -201,17 +223,30 @@ if [ -n "$DTB_CAPSULE_EXPECTED_KVER" ] && [ "$RUNNING_KVER" != "$DTB_CAPSULE_EXP
 
     # Unconsumed capsule, or staging skipped because content already
     # matched EXPECTED: either way just awaiting reboot.
+    _capsule_unconsumed=0
+    _detail_reason=""
     if [ -d "$CAPSULE_DIR" ] && [ -n "$(ls -A "$CAPSULE_DIR" 2>/dev/null)" ]; then
-        STALL_STATE="$(check_reboot_stall)"
-        log "running kernel ${RUNNING_KVER} does not match capsule's expected kernel ${DTB_CAPSULE_EXPECTED_KVER}; ${CAPSULE_DIR} still holds an unconsumed capsule — ${STALL_STATE}"
-        write_state "$STALL_STATE" "unknown" "expected-kver=${DTB_CAPSULE_EXPECTED_KVER} installed, capsule still unconsumed in ${CAPSULE_DIR}"
-        exit 0
+        _capsule_unconsumed=1
+        _detail_reason="expected-kver=${DTB_CAPSULE_EXPECTED_KVER} installed, capsule still unconsumed in ${CAPSULE_DIR}"
+    elif [ -n "$DTB_CAPSULE_EXPECTED_SHA" ] && [ "$DTB_CAPSULE_EXPECTED_SHA" = "$RUNNING_DTB_SHA" ]; then
+        _capsule_unconsumed=1
+        _detail_reason="expected-kver=${DTB_CAPSULE_EXPECTED_KVER}, capsule staging was skipped (content already matched)"
     fi
 
-    if [ -n "$DTB_CAPSULE_EXPECTED_SHA" ] && [ "$DTB_CAPSULE_EXPECTED_SHA" = "$RUNNING_DTB_SHA" ]; then
+    if [ "$_capsule_unconsumed" -eq 1 ]; then
         STALL_STATE="$(check_reboot_stall)"
-        log "running kernel ${RUNNING_KVER} does not match capsule's expected kernel ${DTB_CAPSULE_EXPECTED_KVER}, but running DTB content already matches it (staging was skipped) — ${STALL_STATE}"
-        write_state "$STALL_STATE" "unknown" "expected-kver=${DTB_CAPSULE_EXPECTED_KVER}, capsule staging was skipped (content already matched)"
+        if [ "$STALL_STATE" = "reboot_stalled" ]; then
+            log "running kernel ${RUNNING_KVER} does not match capsule's expected kernel ${DTB_CAPSULE_EXPECTED_KVER}; reboot stalled — ${_detail_reason}"
+            [ -n "$ROLLBACK_TARGET_KVER" ] && run_auto_recovery
+            _rollback_available="false"
+            if [ -n "$ROLLBACK_TARGET_KVER" ] && [ "$(linux_modules_status_for_kver "$ROLLBACK_TARGET_KVER")" = "install ok installed" ]; then
+                _rollback_available="true"
+            fi
+            write_state "$STALL_STATE" "unknown" "$_detail_reason" "$ROLLBACK_TARGET_KVER" "$_rollback_available"
+        else
+            log "running kernel ${RUNNING_KVER} does not match capsule's expected kernel ${DTB_CAPSULE_EXPECTED_KVER}; awaiting reboot — ${_detail_reason}"
+            write_state "$STALL_STATE" "unknown" "$_detail_reason"
+        fi
         exit 0
     fi
 
@@ -225,7 +260,16 @@ if [ -n "$DTB_CAPSULE_EXPECTED_KVER" ] && [ "$RUNNING_KVER" != "$DTB_CAPSULE_EXP
             ;;
         mismatch)
             log "ERROR: running kernel ${RUNNING_KVER}'s own DTB content does not match its installed linux-modules package — kernel and DTB are paired incorrectly"
-            write_state "kernel_dtb_mismatch" "unknown" "expected-kver=${DTB_CAPSULE_EXPECTED_KVER}, running kver=${RUNNING_KVER}'s own DTB content mismatches its installed package"
+            if [ -n "$ROLLBACK_TARGET_KVER" ]; then
+                _rollback_available="false"
+                if [ "$(linux_modules_status_for_kver "$ROLLBACK_TARGET_KVER")" = "install ok installed" ]; then
+                    _rollback_available="true"
+                fi
+                run_auto_recovery
+                write_state "kernel_dtb_mismatch" "unknown" "expected-kver=${DTB_CAPSULE_EXPECTED_KVER}, running kver=${RUNNING_KVER}'s own DTB content mismatches its installed package" "$ROLLBACK_TARGET_KVER" "$_rollback_available"
+            else
+                write_state "kernel_dtb_mismatch" "unknown" "expected-kver=${DTB_CAPSULE_EXPECTED_KVER}, running kver=${RUNNING_KVER}'s own DTB content mismatches its installed package"
+            fi
             exit 0
             ;;
         *)
@@ -265,13 +309,18 @@ fi
 MATCHED_ANY=0
 ESRT_CONFIRMED=0
 ESRT_STATUS_LINE=""
-if [ -f "$LAST_VERIFIED_KVER_FILE" ] && [ "$(cat "$LAST_VERIFIED_KVER_FILE" 2>/dev/null || echo "")" = "$RUNNING_KVER" ]; then
-    ESRT_DEDUP_SKIPPED="true"
-    MATCHED_ANY=1
-    ESRT_CONFIRMED="$(cat "$LAST_ESRT_CONFIRMED_FILE" 2>/dev/null || echo "0")"
-    ESRT_STATUS_LINE="$(cat "$LAST_ESRT_DETAIL_FILE" 2>/dev/null || echo "")"
-    log "already verified ESRT capsule result for kernel ${RUNNING_KVER}, skipping ESRT check (recalling esrt_confirmed=${ESRT_CONFIRMED} from last check${ESRT_STATUS_LINE:+; detail: ${ESRT_STATUS_LINE}})"
-else
+if [ -f "$LAST_ESRT_CACHE_FILE" ]; then
+    _cached_kver="$(grep '^kver=' "$LAST_ESRT_CACHE_FILE" 2>/dev/null | cut -d= -f2-)"
+    if [ "$_cached_kver" = "$RUNNING_KVER" ]; then
+        ESRT_DEDUP_SKIPPED="true"
+        MATCHED_ANY=1
+        ESRT_CONFIRMED="$(grep '^confirmed=' "$LAST_ESRT_CACHE_FILE" 2>/dev/null | cut -d= -f2-)"
+        ESRT_STATUS_LINE="$(grep '^detail=' "$LAST_ESRT_CACHE_FILE" 2>/dev/null | cut -d= -f2-)"
+        log "already verified ESRT capsule result for kernel ${RUNNING_KVER}, skipping ESRT check (recalling esrt_confirmed=${ESRT_CONFIRMED} from last check${ESRT_STATUS_LINE:+; detail: ${ESRT_STATUS_LINE}})"
+    fi
+fi
+
+if [ "$ESRT_DEDUP_SKIPPED" != "true" ]; then
     for ENV_FILE in "${PKG_SHARE}"/*/capsule.env; do
         [ -f "$ENV_FILE" ] || continue
         MACHINE="$(basename "$(dirname "$ENV_FILE")")"
@@ -338,10 +387,12 @@ else
     if [ "$MATCHED_ANY" -eq 0 ]; then
         log "WARNING: no ESRT entry found matching any packaged platform's FMP_GUID — cannot confirm capsule result via ESRT"
     elif [ "$CAPSULE_DIR_EMPTY" -eq 1 ]; then
-        rm -f "$LAST_VERIFIED_KVER_FILE" "$LAST_ESRT_CONFIRMED_FILE" "$LAST_ESRT_DETAIL_FILE"
-        echo "$RUNNING_KVER" > "$LAST_VERIFIED_KVER_FILE"
-        echo "$ESRT_CONFIRMED" > "$LAST_ESRT_CONFIRMED_FILE"
-        echo "$ESRT_STATUS_LINE" > "$LAST_ESRT_DETAIL_FILE"
+        rm -f "$LAST_ESRT_CACHE_FILE"
+        cat > "$LAST_ESRT_CACHE_FILE" <<EOF
+kver=${RUNNING_KVER}
+confirmed=${ESRT_CONFIRMED}
+detail=${ESRT_STATUS_LINE}
+EOF
     else
         log "WARNING: ${CAPSULE_DIR} still has an unconsumed capsule — not caching this ESRT result, will re-check on the next boot"
     fi
@@ -371,13 +422,8 @@ log "WARNING: DTB's provenance sha256=${RUNNING_DTB_SHA} does not match installe
 # firmware. Scans every OTHER installed kernel's dtb-provenance-sha256 for a
 # match against the running DTB; ties resolve to the highest-versioned
 # match. ---
-ROLLBACK_TARGET_KVER=""
-for CANDIDATE_KVER in $(ls "$MODULES_DIR" 2>/dev/null | sort -V); do
-    [ "$CANDIDATE_KVER" != "$RUNNING_KVER" ] || continue
-    CANDIDATE_DTB_SHA="$(dtb_provenance_sha256_for_kver "$CANDIDATE_KVER" 2>/dev/null || echo "")"
-    [ -n "$CANDIDATE_DTB_SHA" ] || continue
-    [ "$CANDIDATE_DTB_SHA" = "$RUNNING_DTB_SHA" ] && ROLLBACK_TARGET_KVER="$CANDIDATE_KVER"
-done
+# Note: ROLLBACK_TARGET_KVER was already computed at line 126-131 and is
+# reused here to avoid redundant scanning.
 
 if [ -n "$ROLLBACK_TARGET_KVER" ]; then
     ROLLBACK_TARGET_AVAILABLE="false"
@@ -385,12 +431,25 @@ if [ -n "$ROLLBACK_TARGET_KVER" ]; then
         ROLLBACK_TARGET_AVAILABLE="true"
     fi
     log "WARNING: running DTB's provenance sha256 matches installed linux-modules-${ROLLBACK_TARGET_KVER} — firmware appears to have kept/reverted to that kernel's DTB despite ESRT reporting success for ${RUNNING_KVER}"
+    run_auto_recovery
     write_state "ok" "suspected_dtb_rollback" "running DTB's provenance sha256 matches linux-modules-${ROLLBACK_TARGET_KVER}" "$ROLLBACK_TARGET_KVER" "$ROLLBACK_TARGET_AVAILABLE"
     exit 0
 fi
 
 if [ "$ESRT_CONFIRMED" -eq 0 ]; then
-    write_state "ok" "apply_failed" "$ESRT_STATUS_LINE"
+    # Firmware reported capsule apply failed. Check if running DTB matches another installed kernel.
+    # If so, attempt automatic recovery to that kernel.
+    if [ -n "$ROLLBACK_TARGET_KVER" ]; then
+        ROLLBACK_TARGET_AVAILABLE="false"
+        if [ "$(linux_modules_status_for_kver "$ROLLBACK_TARGET_KVER")" = "install ok installed" ]; then
+            ROLLBACK_TARGET_AVAILABLE="true"
+        fi
+        log "WARNING: firmware reported capsule apply failed, but running DTB matches installed linux-modules-${ROLLBACK_TARGET_KVER} — attempting automatic recovery"
+        run_auto_recovery
+        write_state "ok" "apply_failed_with_rollback_available" "firmware apply failed; running DTB matches linux-modules-${ROLLBACK_TARGET_KVER}" "$ROLLBACK_TARGET_KVER" "$ROLLBACK_TARGET_AVAILABLE"
+    else
+        write_state "ok" "apply_failed" "$ESRT_STATUS_LINE"
+    fi
     exit 0
 fi
 

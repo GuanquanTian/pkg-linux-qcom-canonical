@@ -288,6 +288,8 @@ ifeq ($(do_dtb_capsule),true)
 			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/expected-dtb-sha256 ; \
 		install -Dm755 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/verify-capsule-result.sh \
 			$(dtbcapsulepkgdir)/usr/share/dtb-capsule/verify-capsule-result.sh ; \
+		install -Dm755 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/dtb-capsule-recovery.sh \
+			$(dtbcapsulepkgdir)/usr/sbin/dtb-capsule-recovery ; \
 		install -Dm755 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/dtb-capsule-motd.sh \
 			$(dtbcapsulepkgdir)/etc/update-motd.d/85-dtb-capsule ; \
 		install -Dm644 $(CURDIR)/$(DEBIAN)/dtb-capsule-runtime/systemd/dtb-capsule-verify.service \

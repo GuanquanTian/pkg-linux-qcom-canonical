@@ -41,5 +41,10 @@ echo "    kver_match_state=${kver_match_state} dtb_pairing_state=${dtb_pairing_s
 echo "    dtb_kver_content_match=${dtb_kver_content_match}"
 [ -n "$detail" ] && echo "    detail: ${detail}"
 echo "    run 'journalctl -t dtb-capsule-verify' for details."
+case "$kver_match_state" in
+    kernel_dtb_mismatch|reboot_stalled)
+        echo "    run 'dtb-capsule-recovery' to switch the GRUB default to a matching kernel."
+        ;;
+esac
 
 exit 0
