@@ -35,6 +35,21 @@ if [[ "$SUITE" != "resolute-qcom-devel" || -n "$KERNEL_VERSION" ]]; then
   exit 0
 fi
 
+# Report every missing host tool at once rather than one build at a time. All
+# three run on the runner host, not inside the build container, so they have to
+# be installed by the workflow; the container's dpkg-dev does not help here. A
+# build costs over an hour, and without this the first missing tool aborts the
+# script mid-way and looks identical to a clean skip.
+MISSING_TOOLS=()
+for tool in gh jq dpkg-parsechangelog; do
+  command -v "$tool" >/dev/null 2>&1 || MISSING_TOOLS+=("$tool")
+done
+if (( ${#MISSING_TOOLS[@]} > 0 )); then
+  echo "::warning::Missing required tool(s) on the runner: ${MISSING_TOOLS[*]}; skipping local version suffix."
+  emit_kernel_version "unmodified"
+  exit 0
+fi
+
 cd kernel-src/
 
 DEBIAN_DIR="$(awk -F= '($1 == "DEBIAN") { print $2 }' debian/debian.env 2>/dev/null || true)"
