@@ -304,7 +304,26 @@ jobs:
           docker image ls
 
       # -----------------------------------------------------------------------
-      # 7. Build kernel packages inside the suite-matched container
+      # 7. Inject DTB capsule certificates from GitHub Secrets
+      #    Certificates are stored as base64-encoded strings in Secrets and
+      #    decoded during injection into debian.qcom/certs/ for use during build
+      # -----------------------------------------------------------------------
+      - name: Inject DTB capsule certificates
+        env:
+          FMPCERT: ${{ secrets.FMPCERT }}
+          FMPROOT: ${{ secrets.FMPROOT }}
+          FMPSUB: ${{ secrets.FMPSUB }}
+        run: |
+          set +x
+          mkdir -p kernel-src/debian.qcom/certs
+          echo "$FMPCERT" | base64 -d > kernel-src/debian.qcom/certs/QcFMPCert.pem
+          echo "$FMPROOT" | base64 -d > kernel-src/debian.qcom/certs/QcFMPRoot.pub.pem
+          echo "$FMPSUB" | base64 -d > kernel-src/debian.qcom/certs/QcFMPSub.pub.pem
+          chmod 600 kernel-src/debian.qcom/certs/*.pem
+          set -x
+
+      # -----------------------------------------------------------------------
+      # 8. Build kernel packages inside the suite-matched container
       #    The workspace is bind-mounted so output .deb files land on the host.
       # -----------------------------------------------------------------------
       - name: Build kernel packages (ghcr.io/qualcomm-linux/pkg-builder:${{ inputs.suite || 'resolute-qcom' }})
@@ -400,7 +419,7 @@ jobs:
             '
 
       # -----------------------------------------------------------------------
-      # 8. Collect output packages
+      # 9. Collect output packages
       #    The Ubuntu kernel build drops .deb files one level above the
       #    source tree (i.e. in GITHUB_WORKSPACE, not inside kernel-src/).
       #    qcom-rt flavour packages are split into output/rt/ so consumers can
@@ -448,7 +467,7 @@ jobs:
           fi
 
       # -----------------------------------------------------------------------
-      # 9. Upload to S3 (lecore-production runner only)
+      # 10. Upload to S3 (lecore-production runner only)
       #    Skipped when skip_s3 is set (premerge-pr.yml build-only checks).
       #    Destination prefix is the caller-supplied s3_prefix input, not
       #    inferred from github.event_name: a reusable workflow inherits the
@@ -463,7 +482,7 @@ jobs:
           destination: ${{ env.ORG_NAME }}/pkg/${{ inputs.s3_prefix || 'temp' }}/${{ env.REPO_NAME }}/${{ github.run_id }}-${{ github.run_attempt }}/
 
       # -----------------------------------------------------------------------
-      # 10. Summary
+      # 11. Summary
       # -----------------------------------------------------------------------
       - name: Print summary
         if: always()
