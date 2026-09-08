@@ -39,3 +39,4 @@ jobs:
       dbgsym: false
       flavours: qcom
       s3_prefix: premerge
+    secrets: inherit
