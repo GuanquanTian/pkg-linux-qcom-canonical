@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DTB UEFI Capsule Update - Flowcharts (v3)</title>
+    <title>DTB UEFI Capsule Update - Flowcharts</title>
     <style>
         * {
             margin: 0;
@@ -311,9 +311,15 @@
 </head>
 <body>
     <div class="container">
-        <h1>DTB UEFI Capsule Update - Flowcharts (v3)</h1>
-        <p class="subtitle">Full pipeline: build time, install time, and the two-phase runtime verification state machine (Phase 1/2) with Case 1&#x2013;8 and transitions<br/>
-        <strong>Updated: 2026-09-07</strong></p>
+        <h1>DTB UEFI Capsule Update - Flowcharts</h1>
+        <p class="subtitle">Build time, install time, and the two-phase runtime verification state machine (Phase 1/2), with an 8-case scenario summary<br/>
+        <strong>Updated: 2026-09-15</strong></p>
+
+        <div class="flowchart-section" style="padding: 20px 30px;">
+            <p class="description" style="margin-top:0; border-left-color:#4caf50; font-size:14px;">
+                <strong>TL;DR</strong> &#x2014; Every boot, a systemd service checks whether the running kernel and its DTB actually match what was intended (Phase 1: kernel version; Phase 2: DTB content), verified against firmware's own ESRT report plus a fresh sha256 read from devicetree &#x2014; never trusting either signal alone, since firmware can claim success on a stale DTB and content can drift independently of what the kernel package expects. On four mismatch states (<code>reboot_stalled</code>, <code>kernel_dtb_mismatch</code>, <code>suspected_dtb_rollback</code>, <code>apply_failed_with_rollback_available</code>), it automatically switches the GRUB default to whichever installed kernel's DTB actually matches, converging the device back to a known-good boot without operator intervention.
+            </p>
+        </div>
 
         <!-- Value Reference -->
         <div class="flowchart-section">
@@ -345,92 +351,38 @@
         <div class="flowchart-section">
             <h2>State Classification Summary</h2>
             <p class="description" style="margin-top:0;">
-                The verification script uses a <strong>two-phase state classification system</strong> to determine the capsule update status. Each phase produces a state value that is written to <code>last-verify-state</code> for consumption by MOTD, recovery services, and monitoring tools.
-            </p>
-
-            <h3>Phase 1: kver_match_state (Kernel Version Matching)</h3>
-            <p class="description">
-                Determines whether the installed dtb-capsule package's target kernel matches the currently running kernel. This phase is always executed.
+                Two phases, each producing one state value written to <code>last-verify-state</code>. Phase 1 (<code>kver_match_state</code>) always runs; Phase 2 (<code>dtb_pairing_state</code>) only runs once Phase 1 = <code>ok</code>. Full decision logic for each state is in the flowcharts below (3a/3b/3c) &#x2014; this table is a quick-reference index, not a restatement of that logic.
             </p>
             <div class="case-table-wrap">
-                <table class="case-table">
+                <table class="case-table wide">
                     <tr>
+                        <th>Phase</th>
                         <th>State Value</th>
                         <th>Meaning</th>
-                        <th>Priority</th>
+                        <th>Severity</th>
                         <th>Auto-Recovery</th>
-                        <th>Next Phase</th>
                     </tr>
-                    <tr class="success-row"><td class="state-cell"><strong>ok</strong></td><td>Kernel version matches</td><td>✅ OK</td><td>—</td><td>Proceed to Phase 2</td></tr>
-                    <tr class="pending-row"><td class="state-cell"><strong>reboot_pending</strong></td><td>Awaiting reboot into target kernel (first detection)</td><td>⏳ PENDING</td><td>✗</td><td>Exit</td></tr>
-                    <tr class="warning-row"><td class="state-cell"><strong>reboot_stalled</strong></td><td>Rebooted but still not in target kernel</td><td>⚠️ WARNING</td><td>✓ (if matching kernel found)</td><td>Exit</td></tr>
-                    <tr class="warning-row"><td class="state-cell"><strong>no_capsule_for_running_kernel</strong></td><td>No capsule targets running kernel, but its DTB is self-consistent</td><td>ℹ️ INFO</td><td>✗</td><td>Exit</td></tr>
-                    <tr class="error-row"><td class="state-cell"><strong>kernel_dtb_mismatch</strong></td><td>Running kernel's DTB doesn't match its package</td><td>❌ ERROR</td><td>✓ (if matching kernel found)</td><td>Exit</td></tr>
-                    <tr class="error-row"><td class="state-cell"><strong>package_mismatch</strong></td><td>Target kernel's package is in abnormal dpkg state</td><td>❌ ERROR</td><td>✗</td><td>Exit</td></tr>
-                    <tr class="unknown-row"><td class="state-cell"><strong>unknown</strong></td><td>Cannot determine (missing provenance data)</td><td>❓ UNKNOWN</td><td>✗</td><td>Exit</td></tr>
+                    <tr class="success-row"><td>1</td><td class="state-cell">ok</td><td>Kernel version matches &#x2014; proceed to Phase 2</td><td>OK</td><td>&#x2014;</td></tr>
+                    <tr class="pending-row"><td>1</td><td class="state-cell">reboot_pending</td><td>Awaiting reboot into target kernel (first detection)</td><td>PENDING</td><td>&#x2717;</td></tr>
+                    <tr class="warning-row"><td>1</td><td class="state-cell">reboot_stalled</td><td>Rebooted but still not in target kernel</td><td>WARNING</td><td>&#x2713; if matching kernel found</td></tr>
+                    <tr class="warning-row"><td>1</td><td class="state-cell">no_capsule_for_running_kernel</td><td>No capsule targets running kernel, but its DTB is self-consistent</td><td>INFO</td><td>&#x2717;</td></tr>
+                    <tr class="error-row"><td>1</td><td class="state-cell">kernel_dtb_mismatch</td><td>Running kernel's DTB doesn't match its own package</td><td>ERROR</td><td>&#x2713; if matching kernel found</td></tr>
+                    <tr class="error-row"><td>1</td><td class="state-cell">package_mismatch</td><td>Target kernel's package is in an abnormal dpkg state</td><td>ERROR</td><td>&#x2717;</td></tr>
+                    <tr class="unknown-row"><td>1</td><td class="state-cell">unknown</td><td>Cannot determine (missing provenance data)</td><td>UNKNOWN</td><td>&#x2717;</td></tr>
+                    <tr class="success-row"><td>2</td><td class="state-cell">apply_confirmed</td><td>Capsule applied and content-verified</td><td>OK</td><td>&#x2717;</td></tr>
+                    <tr class="pending-row"><td>2</td><td class="state-cell">pending</td><td>Capsule not yet confirmed applied by firmware</td><td>PENDING</td><td>&#x2717;</td></tr>
+                    <tr class="warning-row"><td>2</td><td class="state-cell">suspected_dtb_rollback</td><td>ESRT reports success, but content belongs to another installed kernel</td><td>WARNING</td><td>&#x2713;</td></tr>
+                    <tr class="warning-row"><td>2</td><td class="state-cell">apply_failed_with_rollback_available</td><td>ESRT reports failure, but a matching kernel exists</td><td>WARNING</td><td>&#x2713;</td></tr>
+                    <tr class="error-row"><td>2</td><td class="state-cell">apply_failed</td><td>ESRT reports failure, no matching kernel</td><td>ERROR</td><td>&#x2717;</td></tr>
+                    <tr class="error-row"><td>2</td><td class="state-cell">content_mismatch_localized</td><td>ESRT reports success, but content matches no installed kernel</td><td>ERROR</td><td>&#x2717;</td></tr>
+                    <tr class="unknown-row"><td>2</td><td class="state-cell">unknown</td><td>Cannot determine (missing provenance data)</td><td>UNKNOWN</td><td>&#x2717;</td></tr>
                 </table>
-            </div>
-
-            <h3>Phase 2: dtb_pairing_state (DTB Pairing Status)</h3>
-            <p class="description">
-                Only executed when <code>kver_match_state=ok</code>. Determines whether firmware correctly paired the running kernel with the correct DTB content.
-            </p>
-            <div class="case-table-wrap">
-                <table class="case-table">
-                    <tr>
-                        <th>State Value</th>
-                        <th>Meaning</th>
-                        <th>Priority</th>
-                        <th>Auto-Recovery</th>
-                        <th>Action</th>
-                    </tr>
-                    <tr class="success-row"><td class="state-cell"><strong>apply_confirmed</strong></td><td>Capsule applied and verified ✓</td><td>✅ OK</td><td>✗</td><td>Success</td></tr>
-                    <tr class="pending-row"><td class="state-cell"><strong>pending</strong></td><td>Capsule not yet confirmed applied</td><td>⏳ PENDING</td><td>✗</td><td>Wait for firmware</td></tr>
-                    <tr class="error-row"><td class="state-cell"><strong>apply_failed</strong></td><td>Firmware reported capsule apply failed</td><td>❌ ERROR</td><td>✗</td><td>Manual intervention</td></tr>
-                    <tr class="warning-row"><td class="state-cell"><strong>apply_failed_with_rollback_available</strong></td><td>Apply failed but matching kernel exists</td><td>⚠️ WARNING</td><td>✓</td><td>Auto-recover</td></tr>
-                    <tr class="warning-row"><td class="state-cell"><strong>suspected_dtb_rollback</strong></td><td>Firmware kept/reverted to previous DTB</td><td>⚠️ WARNING</td><td>✓</td><td>Auto-recover</td></tr>
-                    <tr class="error-row"><td class="state-cell"><strong>content_mismatch_localized</strong></td><td>DTB content doesn't match package</td><td>❌ ERROR</td><td>✗</td><td>Investigate</td></tr>
-                    <tr class="unknown-row"><td class="state-cell"><strong>unknown</strong></td><td>Cannot determine (missing data)</td><td>❓ UNKNOWN</td><td>✗</td><td>Investigate</td></tr>
-                </table>
-            </div>
-
-            <h3>Auto-Recovery Trigger Points</h3>
-            <p class="description">
-                The verification script automatically triggers kernel recovery in these scenarios:
-            </p>
-            <div class="case-table-wrap">
-                <table class="case-table">
-                    <tr>
-                        <th>#</th>
-                        <th>Trigger Condition</th>
-                        <th>Action</th>
-                        <th>Code Location</th>
-                    </tr>
-                    <tr><td>1</td><td><code>reboot_stalled</code> + matching kernel found</td><td>Call <code>run_auto_recovery()</code></td><td>Line 240, 245</td></tr>
-                    <tr><td>2</td><td><code>kernel_dtb_mismatch</code> + matching kernel found</td><td>Call <code>run_auto_recovery()</code></td><td>Line 268</td></tr>
-                    <tr><td>3</td><td><code>suspected_dtb_rollback</code></td><td>Call <code>run_auto_recovery()</code></td><td>Line 434</td></tr>
-                    <tr><td>4</td><td><code>apply_failed_with_rollback_available</code> + matching kernel found</td><td>Call <code>run_auto_recovery()</code></td><td>Line 448</td></tr>
-                </table>
-            </div>
-
-            <h3>Key Judgment Points</h3>
-            <div class="case-table-wrap">
-                <table class="case-table">
-                    <tr>
-                        <th>Judgment</th>
-                        <th>Method</th>
-                        <th>Purpose</th>
-                    </tr>
-                    <tr><td><strong>check_reboot_stall()</strong></td><td>Compare <code>boot_id</code> from <code>/proc/sys/kernel/random/boot_id</code></td><td>Distinguish reboot_pending (same boot) from reboot_stalled (different boot)</td></tr>
-                    <tr><td><strong>RUNNING_DTB_MATCHES_INSTALLED_MODULES</strong></td><td>Compare <code>RUNNING_DTB_SHA</code> with <code>RUNNING_INSTALLED_DTB_SHA</code></td><td>Check if running kernel's DTB is self-consistent</td></tr>
-                    <tr><td><strong>ESRT_CONFIRMED</strong></td><td>Check ESRT entry: <code>status=0</code> AND <code>fw_version == last_attempt_version</code></td><td>Verify firmware successfully applied capsule</td></tr>
-                    <tr><td><strong>ROLLBACK_TARGET_KVER</strong></td><td>Scan all kernels in <code>/usr/lib/modules/</code>, find DTB matching <code>RUNNING_DTB_SHA</code></td><td>Identify candidate kernel for automatic recovery</td></tr>
-                </table>
+                <p class="case-table-caption">Auto-recovery always means the same action: call <code>dtb-capsule-recovery --auto</code> to switch the GRUB default to a matching kernel (see &#x00a75. Kernel Rollback Recovery Flow). "if matching kernel found" flags states that can occur <em>without</em> a match too (nothing to recover to, so no-op); the other &#x2713; states are only reached when a match already exists.</p>
             </div>
 
             <h3>State Output File</h3>
             <p class="description">
-                All state information is written to <code>/var/lib/dtb-capsule/last-verify-state</code> in key=value format. The <code>rollback_target_kver</code> and <code>rollback_target_available</code> fields are always emitted (even empty) so downstream consumers can safely test <code>-n "$rollback_target_kver"</code>. These fields are populated in <code>reboot_stalled</code>, <code>kernel_dtb_mismatch</code>, <code>suspected_dtb_rollback</code>, and <code>apply_failed_with_rollback_available</code> states when a matching kernel is found.
+                Every run writes <code>/var/lib/dtb-capsule/last-verify-state</code> in key=value format. <code>rollback_target_kver</code>/<code>rollback_target_available</code> are always emitted (even empty) so downstream consumers can safely test <code>-n "$rollback_target_kver"</code>.
             </p>
             <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; font-size: 12px;">timestamp=2026-09-07T12:34:56Z
 boot_id=12345678-1234-1234-1234-123456789012
@@ -733,7 +685,7 @@ summary="OK: capsule applied and verified"</pre>
                 <text class="box-text" x="500" y="597" style="font-size:11px;">content)?</text>
 
                 <line class="arrow-other" x1="390" y1="575" x2="230" y2="575"/>
-                <text class="label-other" x="310" y="567" style="font-size:10px;">ok</text>
+                <text class="label-other" x="340" y="567" style="font-size:10px;">match</text>
                 <rect class="box-warning" x="20" y="535" width="290" height="80" rx="5"/>
                 <text class="box-text" x="165" y="560">no_capsule_for_running_kernel</text>
                 <text class="box-text" x="165" y="578" style="font-size:11px;">(different kernel, running</text>
@@ -777,7 +729,7 @@ summary="OK: capsule applied and verified"</pre>
             </div>
 
             <h3>3b. dtb_pairing_state (Phase 2, only reached once kver_match_state=ok)</h3>
-            <svg width="100%" height="1350" viewBox="0 0 1400 1350">
+            <svg width="100%" height="1050" viewBox="0 0 1400 1050">
                 <defs>
                     <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
                         <polygon points="0 0, 10 3, 0 6" fill="#333" />
@@ -844,7 +796,7 @@ summary="OK: capsule applied and verified"</pre>
                 <text class="box-text" x="960" y="552" style="font-size:10px;">(no marker in own package)</text>
 
                 <line class="arrow-no" x1="500" y1="590" x2="500" y2="620"/>
-                <text class="label-no" x="514" y="609" style="font-size:10px;">No (mismatch, provenance present)</text>
+                <text class="label-no" x="590" y="609" style="font-size:10px;">No (mismatch, provenance present)</text>
 
                 <rect class="box" x="350" y="620" width="300" height="60" rx="5"/>
                 <text class="box-text" x="500" y="642">Scan every OTHER installed kernel's</text>
@@ -852,52 +804,64 @@ summary="OK: capsule applied and verified"</pre>
 
                 <line class="arrow" x1="500" y1="680" x2="500" y2="710"/>
 
+                <!-- Primary branch: what did firmware/ESRT actually report? Must be
+                     checked before naming a rollback target, or a genuine apply
+                     failure gets misclassified as a rollback (this was a real bug,
+                     fixed in verify-capsule-result.sh). -->
                 <polygon class="box-decision" points="500,710 600,760 500,810 400,760"/>
-                <text class="box-text" x="500" y="752">match found among</text>
-                <text class="box-text" x="500" y="767">other installed kernels?</text>
+                <text class="box-text" x="500" y="750" style="font-size:11px;">ESRT_CONFIRMED == 1?</text>
+                <text class="box-text" x="500" y="766" style="font-size:9px;">(firmware reported apply success)</text>
 
-                <line class="arrow-yes" x1="600" y1="760" x2="800" y2="760"/>
-                <text class="label-yes" x="700" y="752">Yes</text>
-                <rect class="box-error" x="800" y="735" width="320" height="50" rx="5"/>
-                <text class="box-text" x="960" y="752">dtb_pairing_state=suspected_dtb_rollback</text>
-                <text class="box-text" x="960" y="769" style="font-size:10px;">(rollback_target_kver=X)</text>
+                <line class="arrow-yes" x1="600" y1="760" x2="700" y2="760"/>
+                <text class="label-yes" x="650" y="752">Yes</text>
+
+                <polygon class="box-decision" points="850,710 1000,760 850,810 700,760"/>
+                <text class="box-text" x="850" y="752" style="font-size:11px;">match found among</text>
+                <text class="box-text" x="850" y="767" style="font-size:11px;">other installed kernels?</text>
+
+                <line class="arrow-yes" x1="1000" y1="760" x2="1060" y2="760"/>
+                <text class="label-yes" x="1030" y="752">Yes</text>
+                <rect class="box-error" x="1060" y="735" width="320" height="50" rx="5"/>
+                <text class="box-text" x="1220" y="752" style="font-size:11px;">dtb_pairing_state=suspected_dtb_rollback</text>
+                <text class="box-text" x="1220" y="769" style="font-size:10px;">(rollback_target_kver=X)</text>
+
+                <!-- match found -> No: nothing else occupies the x=850 column
+                     between here and Localize, so this drops straight down. -->
+                <line class="arrow-no" x1="850" y1="810" x2="850" y2="860"/>
+                <text class="label-no" x="930" y="830" style="font-size:10px;">No (confirmed, no target found)</text>
 
                 <line class="arrow-no" x1="500" y1="810" x2="500" y2="840"/>
                 <text class="label-no" x="514" y="829">No</text>
 
+                <!-- ESRT_CONFIRMED==0: firmware reported failure. Same rollback-target
+                     scan, different meaning here - a matching kernel means "recoverable
+                     failure", not "rollback". No-branch (nothing to recover to) breaks
+                     left to its own terminal box; Yes-branch reaches into the x=850
+                     column directly below the "match found" diamond, so the two
+                     rollback-target checks line up in the same visual column even
+                     though they lead to different terminal states. -->
                 <polygon class="box-decision" points="500,840 600,890 500,940 400,890"/>
-                <text class="box-text" x="500" y="885">ESRT_CONFIRMED</text>
-                <text class="box-text" x="500" y="900" style="font-size:10px;">== 0?</text>
+                <text class="box-text" x="500" y="882" style="font-size:11px;">ROLLBACK_TARGET_KVER</text>
+                <text class="box-text" x="500" y="897" style="font-size:10px;">found?</text>
 
-                <line class="arrow-yes" x1="600" y1="890" x2="800" y2="890"/>
-                <text class="label-yes" x="710" y="882">Yes</text>
+                <line class="arrow-no" x1="400" y1="890" x2="330" y2="890"/>
+                <text class="label-no" x="365" y="882">No</text>
+                <rect class="box-error" x="50" y="865" width="280" height="50" rx="5"/>
+                <text class="box-text" x="190" y="890" style="font-size:12px;">dtb_pairing_state=apply_failed</text>
 
-                <!-- Sub-decision: check for rollback target -->
-                <polygon class="box-decision" points="800,840 900,890 800,940 700,890"/>
-                <text class="box-text" x="800" y="882">ROLLBACK_TARGET_KVER</text>
-                <text class="box-text" x="800" y="897" style="font-size:10px;">found?</text>
+                <line class="arrow-yes" x1="500" y1="940" x2="500" y2="970"/>
+                <text class="label-yes" x="512" y="950">Yes</text>
+                <rect class="box-warning" x="350" y="970" width="300" height="60" rx="5"/>
+                <text class="box-text" x="500" y="1000" style="font-size:11px;">dtb_pairing_state=apply_failed_with_rollback_available</text>
 
-                <line class="arrow-yes" x1="900" y1="890" x2="1000" y2="890"/>
-                <text class="label-yes" x="950" y="882">Yes</text>
-                <rect class="box-warning" x="1000" y="865" width="320" height="50" rx="5"/>
-                <text class="box-text" x="1160" y="882">dtb_pairing_state=apply_failed_with_rollback_available</text>
+                <rect class="box" x="700" y="862" width="300" height="60" rx="5"/>
+                <text class="box-text" x="850" y="882">Localize: diff each packaged .dtb/.dtbo</text>
+                <text class="box-text" x="850" y="900">sha256 against the build-time manifest</text>
 
-                <line class="arrow-no" x1="800" y1="940" x2="800" y2="970"/>
-                <text class="label-no" x="814" y="959">No</text>
-                <rect class="box-error" x="700" y="970" width="320" height="50" rx="5"/>
-                <text class="box-text" x="860" y="990">dtb_pairing_state=apply_failed</text>
+                <line class="arrow" x1="850" y1="923" x2="850" y2="975"/>
 
-                <line class="arrow-no" x1="500" y1="940" x2="500" y2="970"/>
-                <text class="label-no" x="514" y="959">No</text>
-
-                <rect class="box" x="350" y="1020" width="300" height="60" rx="5"/>
-                <text class="box-text" x="500" y="1042">Localize: diff each packaged .dtb/.dtbo</text>
-                <text class="box-text" x="500" y="1060">sha256 against the build-time manifest</text>
-
-                <line class="arrow" x1="500" y1="1080" x2="500" y2="1110"/>
-
-                <rect class="box-error" x="320" y="1110" width="360" height="50" rx="5"/>
-                <text class="box-text" x="500" y="1135">dtb_pairing_state=content_mismatch_localized</text>
+                <rect class="box-error" x="700" y="975" width="300" height="50" rx="5"/>
+                <text class="box-text" x="850" y="1000">dtb_pairing_state=content_mismatch_localized</text>
             </svg>
 
             <h3>3c. reboot_stalled persistence tracking (check_reboot_stall)</h3>
@@ -956,7 +920,7 @@ summary="OK: capsule applied and verified"</pre>
                 <strong>Key points:</strong>
                 <ul style="margin-left: 20px; margin-top: 10px;">
                     <li><strong>3a (kver_match_state):</strong> direction-agnostic &#x2014; splits into <code>package_mismatch</code>, <code>reboot_pending</code>/<code>reboot_stalled</code>, <code>no_capsule_for_running_kernel</code>, and <code>kernel_dtb_mismatch</code>. Whenever DTB self-consistency itself is unknown, it defers to Phase 2 instead of guessing</li>
-                    <li><strong>3b (dtb_pairing_state):</strong> content is checked first &#x2014; a match short-circuits to <code>apply_confirmed</code> regardless of ESRT. On mismatch, every other installed kernel's provenance sha256 is scanned first to name a <code>suspected_dtb_rollback</code> target; only if no match is found does ESRT decide between <code>apply_failed_with_rollback_available</code> (if a matching kernel exists) and <code>apply_failed</code> (if no match)</li>
+                    <li><strong>3b (dtb_pairing_state):</strong> content is checked first &#x2014; a match short-circuits to <code>apply_confirmed</code> regardless of ESRT. On mismatch, every other installed kernel's provenance sha256 is scanned once for a candidate (<code>ROLLBACK_TARGET_KVER</code>), but <code>ESRT_CONFIRMED</code> is checked <em>before</em> that candidate is used, so the same candidate is classified differently depending on what firmware actually reported: <code>ESRT_CONFIRMED=1</code> (firmware claims success) + a candidate found &#x2192; <code>suspected_dtb_rollback</code>; <code>ESRT_CONFIRMED=0</code> (firmware reports failure) + a candidate found &#x2192; <code>apply_failed_with_rollback_available</code>; <code>ESRT_CONFIRMED=0</code> + no candidate &#x2192; <code>apply_failed</code>. Checking the candidate before ESRT would misroute a genuine apply failure as a rollback &#x2014; this was a real bug in <code>verify-capsule-result.sh</code>, fixed by gating the rollback branch on <code>ESRT_CONFIRMED=1</code></li>
                     <li><strong>3c (reboot_stalled tracking):</strong> keyed on <code>boot_id</code> so clock skew can't distort it; deliberately left untouched once escalated to <code>reboot_stalled</code>, so the state keeps escalating consistently across further reboots</li>
                 </ul>
             </div>
@@ -980,7 +944,9 @@ summary="OK: capsule applied and verified"</pre>
                     <tr><td>3</td><td>linux-image/module only, dtb-capsule never installed</td><td class="state-cell">ok</td><td class="state-cell">apply_confirmed</td><td>&#x2713; Normal</td></tr>
                     <tr><td>4</td><td>Kernel upgraded, DTB not updated along with it</td><td class="state-cell">kernel_dtb_mismatch</td><td>&#x2014;</td><td>&#x2717; Error</td></tr>
                     <tr><td>5</td><td>New dtb-capsule installed, matching linux-image/module not yet installed/rebooted (incl. 5b: staging skipped, content already matches)</td><td class="state-cell">reboot_pending / reboot_stalled</td><td>&#x2014;</td><td>&#x23F3; Pending</td></tr>
-                    <tr><td>6</td><td>DTB manually reflashed, dtb-capsule never installed</td><td class="state-cell">ok</td><td class="state-cell">suspected_dtb_rollback / apply_failed</td><td>&#x2717; Error</td></tr>
+                    <tr><td>6a</td><td>DTB manually reflashed, dtb-capsule never installed &#x2014; ESRT reports success</td><td class="state-cell">ok</td><td class="state-cell">suspected_dtb_rollback</td><td>&#x2717; Error</td></tr>
+                    <tr><td>6b</td><td>Same, but ESRT reports failure and a matching kernel exists</td><td class="state-cell">ok</td><td class="state-cell">apply_failed_with_rollback_available</td><td>&#x2717; Error</td></tr>
+                    <tr><td>6c</td><td>Same, but ESRT reports failure and no matching kernel exists</td><td class="state-cell">ok</td><td class="state-cell">apply_failed</td><td>&#x2717; Error</td></tr>
                     <tr><td>7</td><td>Kernel upgraded, DTB content unchanged &#x2014; postinst skipped staging</td><td class="state-cell">ok</td><td class="state-cell">apply_confirmed</td><td>&#x2713; Normal</td></tr>
                     <tr><td>8</td><td>linux-modules-&lt;RUNNING_KVER&gt; has been removed; no provenance marker to check against</td><td class="state-cell">ok</td><td class="state-cell">unknown</td><td>? Cannot verify</td></tr>
                 </table>
@@ -990,7 +956,7 @@ summary="OK: capsule applied and verified"</pre>
 
         <!-- Kernel Rollback Recovery Flow -->
         <div class="flowchart-section">
-            <h2>4. Kernel Rollback Recovery Flow</h2>
+            <h2>5. Kernel Rollback Recovery Flow</h2>
             <p class="description" style="margin-top:0;">
                 When kernel/DTB pairing is mismatched (kernel_dtb_mismatch, reboot_stalled, apply_failed, or suspected_dtb_rollback),
                 verify-capsule-result.sh checks if a matching kernel exists. If found, dtb-capsule-recovery --auto scans installed kernels
@@ -1034,16 +1000,16 @@ summary="OK: capsule applied and verified"</pre>
                 <text class="box-text" x="190" y="235">ERROR: no matching</text>
                 <text class="box-text" x="190" y="252" style="font-size:10px;">kernel found</text>
 
-                <line class="arrow-yes" x1="500" y1="290" x2="500" y2="320"/>
+                <line class="arrow-yes" x1="500" y1="290" x2="500" y2="340"/>
                 <text class="label-yes" x="514" y="309">Yes</text>
 
                 <!-- Scan kernels -->
-                <rect class="box" x="300" y="320" width="400" height="60" rx="5"/>
-                <text class="box-text" x="500" y="342">Scan all installed kernels</text>
-                <text class="box-text" x="500" y="360" style="font-size:11px;">compare each kernel's dtb-provenance-sha256</text>
-                <text class="box-text" x="500" y="376" style="font-size:11px;">against running DTB sha256</text>
+                <rect class="box" x="300" y="340" width="400" height="80" rx="5"/>
+                <text class="box-text" x="500" y="362">Scan all installed kernels</text>
+                <text class="box-text" x="500" y="380" style="font-size:11px;">compare each kernel's dtb-provenance-sha256</text>
+                <text class="box-text" x="500" y="396" style="font-size:11px;">against running DTB sha256</text>
 
-                <line class="arrow" x1="500" y1="380" x2="500" y2="410"/>
+                <line class="arrow" x1="500" y1="420" x2="500" y2="460"/>
 
                 <!-- Decision: Match found -->
                 <polygon class="box-decision" points="500,460 600,510 500,560 400,510"/>
@@ -1066,7 +1032,7 @@ summary="OK: capsule applied and verified"</pre>
                 <line class="arrow" x1="500" y1="640" x2="500" y2="670"/>
 
                 <!-- Update GRUB -->
-                <rect class="box-success" x="250" y="670" width="500" height="60" rx="5"/>
+                <rect class="box-success" x="300" y="670" width="400" height="60" rx="5"/>
                 <text class="box-text" x="500" y="692">Update GRUB default boot entry</text>
                 <text class="box-text" x="500" y="710" style="font-size:11px;">grub-set-default + update /etc/default/grub + update-grub</text>
             </svg>
@@ -1081,94 +1047,6 @@ summary="OK: capsule applied and verified"</pre>
                     <li><strong>GRUB persistence:</strong> Updates both grub-set-default (EFI variable) and /etc/default/grub (config file), then calls update-grub to regenerate grub.cfg</li>
                     <li><strong>Convergence:</strong> Device reboots into the selected kernel, which has matching DTB content, converging to apply_confirmed state</li>
                 </ul>
-            </div>
-        </div>
-
-        <!-- Case Transition Diagrams -->
-        <div class="flowchart-section">
-            <h2>5. Case Transition Diagrams</h2>
-
-            <div class="transition-diagram">
-                <h4>Normal upgrade: Case 1 &#x2192; Case 5 &#x2192; Case 1</h4>
-                <svg width="100%" height="140" viewBox="0 0 820 140">
-                    <defs>
-                        <marker id="arrowhead-t1" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#333" />
-                        </marker>
-                    </defs>
-                    <rect class="box-success" x="20" y="40" width="160" height="50" rx="5"/>
-                    <text class="box-text" x="100" y="60">Case 1</text>
-                    <text class="box-text" x="100" y="76" style="font-size:11px;">apply_confirmed</text>
-
-                    <line class="arrow" x1="180" y1="65" x2="320" y2="65"/>
-                    <text class="label-text" x="250" y="50" style="font-size:11px;">install new dtb-capsule</text>
-
-                    <rect class="box-warning" x="320" y="40" width="160" height="50" rx="5"/>
-                    <text class="box-text" x="400" y="60">Case 5</text>
-                    <text class="box-text" x="400" y="76" style="font-size:11px;">reboot_pending</text>
-
-                    <line class="arrow" x1="480" y1="65" x2="580" y2="65"/>
-                    <text class="label-text" x="530" y="50">reboot</text>
-
-                    <rect class="box-success" x="580" y="40" width="200" height="50" rx="5"/>
-                    <text class="box-text" x="680" y="60">Case 1</text>
-                    <text class="box-text" x="680" y="76" style="font-size:11px;">apply_confirmed (new kver)</text>
-                </svg>
-            </div>
-
-            <div class="transition-diagram">
-                <h4>Kernel upgraded without a matching capsule: Case 1 &#x2192; Case 4</h4>
-                <svg width="100%" height="140" viewBox="0 0 600 140">
-                    <defs>
-                        <marker id="arrowhead-t2" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#333" />
-                        </marker>
-                    </defs>
-                    <rect class="box-success" x="20" y="40" width="160" height="50" rx="5"/>
-                    <text class="box-text" x="100" y="60">Case 1</text>
-                    <text class="box-text" x="100" y="76" style="font-size:11px;">apply_confirmed</text>
-
-                    <line class="arrow" x1="180" y1="65" x2="300" y2="65"/>
-                    <text class="label-text" x="240" y="37" style="font-size:11px;">install linux-image only,</text>
-                    <text class="label-text" x="240" y="50" style="font-size:11px;">no new dtb-capsule</text>
-
-                    <rect class="box-error" x="300" y="40" width="180" height="50" rx="5"/>
-                    <text class="box-text" x="390" y="60">Case 4</text>
-                    <text class="box-text" x="390" y="76" style="font-size:11px;">kernel_dtb_mismatch</text>
-                </svg>
-            </div>
-
-            <div class="transition-diagram">
-                <h4>Manual DTB reflash, then dtb-capsule install: Case 6 &#x2192; Case 1 &#x2192; Case 7</h4>
-                <svg width="100%" height="140" viewBox="0 0 900 140">
-                    <defs>
-                        <marker id="arrowhead-t3" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-                            <polygon points="0 0, 10 3, 0 6" fill="#333" />
-                        </marker>
-                    </defs>
-                    <rect class="box" x="20" y="40" width="160" height="50" rx="5"/>
-                    <text class="box-text" x="100" y="60">Case 1</text>
-                    <text class="box-text" x="100" y="76" style="font-size:11px;">apply_confirmed</text>
-
-                    <line class="arrow" x1="180" y1="65" x2="280" y2="65"/>
-                    <text class="label-text" x="230" y="50" style="font-size:11px;">manual DTB flash</text>
-
-                    <rect class="box-error" x="280" y="40" width="180" height="50" rx="5"/>
-                    <text class="box-text" x="370" y="60">Case 6</text>
-                    <text class="box-text" x="370" y="76" style="font-size:11px;">suspected_dtb_rollback</text>
-
-                    <line class="arrow" x1="460" y1="65" x2="680" y2="65"/>
-                    <text class="label-text" x="570" y="45" style="font-size:11px;">auto-recovery triggers</text>
-                    <text class="label-text" x="570" y="58" style="font-size:11px;">reboot with matching kernel</text>
-
-                    <rect class="box-success" x="680" y="40" width="180" height="50" rx="5"/>
-                    <text class="box-text" x="770" y="60">Case 1</text>
-                    <text class="box-text" x="770" y="76" style="font-size:11px;">apply_confirmed</text>
-                </svg>
-            </div>
-
-            <div class="description">
-                Case transitions confirm the state machine is direction-agnostic and idempotent: whichever case a device is in, installing the correct capsule package for the running kernel and rebooting (if needed) always converges back to an <code>apply_confirmed</code> case (1/3/7), never leaving a dead end.
             </div>
         </div>
 
