@@ -380,6 +380,11 @@ jobs:
               # Enable deb-src so apt-get build-dep can resolve build dependencies.
               # pkg-builder:noble is Ubuntu 24.04 which uses DEB822 format.
               sed -i "s/^Types: deb$/Types: deb deb-src/" /etc/apt/sources.list.d/ubuntu.sources
+
+              # Add Qualcomm qartifactory repo for kgsl-dkms
+              echo "deb [trusted=yes] https://qartifactory-edge.qualcomm.com/artifactory/qsc-deb-releases resolute main" \
+                > /etc/apt/sources.list.d/qsc-deb-releases.list
+
               apt-get update -qq
 
               cd kernel-src/
