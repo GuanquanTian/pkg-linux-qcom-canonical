@@ -102,6 +102,9 @@ Environment:
   DBGSYM             Set to 1/true/yes/on to also build the unstripped
                       -dbgsym.ddeb debug symbol packages alongside the
                       .deb packages (default: 0, disabled).
+  SKIP_INDEP         Set to 1/true/yes/on to skip binary-indep target
+                      (default: 0, disabled). Useful for incremental builds
+                      when you only need arch-specific packages.
 
 Output:
   Built .deb packages are placed in ./output/ relative to the working
@@ -135,6 +138,7 @@ VERSION_SUFFIX="${5:-}"
 SKIP_BUILD_DEP="${SKIP_BUILD_DEP:-0}"
 INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}"
 DBGSYM="${DBGSYM:-0}"
+SKIP_INDEP="${SKIP_INDEP:-0}"
 
 OUTPUT_DIR="${OUTPUT_DIR:-$(pwd)/output}"
 # Normalize to an absolute path now, before any `cd` below changes pwd out
@@ -316,10 +320,14 @@ log "Starting kernel build (flavour=${FLAVOR}, arch=${ARCH}, jobs=${JOBS})..."
 # package (arch: all, hard-depended on by linux-headers-*-${FLAVOR}) comes
 # from binary-indep only, so it must be appended explicitly. `all` maps to
 # "binary", which already runs binary-arch + binary-indep for every flavour.
+# SKIP_INDEP can be set to skip binary-indep (useful for incremental builds).
 if [ "${FLAVOR}" = "all" ]; then
   RULES_TARGET="binary"
 else
-  RULES_TARGET="binary-${FLAVOR} binary-indep"
+  RULES_TARGET="binary-${FLAVOR}"
+  if ! is_truthy "${SKIP_INDEP}"; then
+    RULES_TARGET="${RULES_TARGET} binary-indep"
+  fi
 fi
 
 export DEB_BUILD_OPTIONS="parallel=${JOBS} nocheck"
