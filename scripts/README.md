@@ -138,7 +138,7 @@ Output packages: `./output/`
 | `IMAGE` | `kernel-build-docker:resolute-target-<ARCH>` | Docker image to use; built on demand via `build-docker-image.sh` if not already present locally |
 | `OUTPUT_DIR` | `./output` (relative to current directory) | Where built `.deb` packages are placed. Set to a fixed path (relative or absolute) if you don't want the output location to depend on which directory you invoke the script from. Created on the host before the container starts, so it's never auto-created by Docker as root |
 | `VERSION_SUFFIX` | (none) | Optional version suffix for the kernel package (e.g., `+v1.0`, `+myuser1`). Pass `auto` to generate from git HEAD |
-| `INCREMENTAL_BUILD` | `1` | Set to `0`/`false`/`no`/`off` to force a full `debian/rules clean` (`rm -rf debian/build debian/stamps`) even when prior build state exists (falls back to a full clean automatically on the first build for a given `SOURCE_DIR` regardless). Turn off after switching branches, changing `debian/control`-level Build-Depends, or before a release/CI run |
+| `INCREMENTAL_BUILD` | `0` | Set to `1`/`true`/`yes`/`on` to enable incremental builds where kbuild only recompiles files that actually changed. Clean builds (default) force a full `debian/rules clean` (`rm -rf debian/build debian/stamps`) ensuring a guaranteed-clean build, which is the safe default for CI and release workflows. Incremental builds are useful for local development |
 | `DBGSYM` | `0` | Set to `1`/`true`/`yes`/`on` to also build the unstripped `-dbgsym.ddeb` debug symbol packages (vmlinux + modules with full debug symbols) alongside the `.deb` packages |
 | `DEBEMAIL` | `build-kernel-deb@localhost` | Email for changelog entries |
 | `DEBFULLNAME` | `build-kernel-deb.sh` | Full name for changelog entries |
@@ -149,20 +149,20 @@ Output packages: `./output/`
 
 ### Incremental Builds
 
-Builds are incremental by default (`INCREMENTAL_BUILD=1`): build state
-(`debian/build/`, `debian/stamps/`) persists across runs even though each
-build runs in a `--rm` container, so kbuild only recompiles what changed.
+By design, builds are clean by default (`INCREMENTAL_BUILD=0`): build state
+(`debian/build/`, `debian/stamps/`) is removed before each build, ensuring
+a guaranteed-clean build. This is the safe default for CI and release workflows.
 
-To force a clean build (e.g. after switching branches, changing
-`debian/control`-level Build-Depends, or before a release/CI run):
+For local development, you can enable incremental builds to speed up rebuilds
+when only a few files have changed:
 
 ```bash
-# Option 1: just run with INCREMENTAL_BUILD=0
-INCREMENTAL_BUILD=0 ./pkg-linux-qcom-canonical/scripts/docker-build-kernel.sh resolute-qcom-devel arm64 qcom
-
-# Option 2: delete the incremental state directly
-rm -rf resolute-qcom-devel/debian/build resolute-qcom-devel/debian/stamps
+# Enable incremental builds
+INCREMENTAL_BUILD=1 ./pkg-linux-qcom-canonical/scripts/docker-build-kernel.sh resolute-qcom-devel arm64 qcom
 ```
+
+Note: incremental build state persists across runs even though each build runs
+in a `--rm` container, so kbuild only recompiles what changed.
 
 ---
 

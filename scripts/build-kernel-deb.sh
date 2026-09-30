@@ -28,16 +28,15 @@
 #                    dirty.
 #
 # Environment:
-#   INCREMENTAL_BUILD  Set to 0/false/no/off to force debian/rules clean's
-#                       rm -rf debian/build debian/stamps even when prior
-#                       build state exists, so the next build is guaranteed
-#                       clean (default: 1, incremental — kbuild only
-#                       recompiles files that actually changed). Falls back
-#                       to a full clean automatically on the first build for
-#                       a given SOURCE_DIR. Do not leave enabled across a
-#                       change to debian/control-level Build-Depends, or
-#                       when a guaranteed-clean build is needed (e.g. before
-#                       a release/CI run).
+#   INCREMENTAL_BUILD  Set to 1/true/yes/on to enable incremental builds
+#                       where kbuild only recompiles files that actually
+#                       changed (default: 0, clean builds). Clean builds force
+#                       debian/rules clean's rm -rf debian/build debian/stamps
+#                       even when prior build state exists, ensuring a
+#                       guaranteed-clean build. This is the safe default for
+#                       CI and release workflows. Incremental builds are useful
+#                       for local development but should not be left enabled
+#                       across changes to debian/control-level Build-Depends.
 #   DBGSYM             Set to 1/true/yes/on to also build the unstripped
 #                       -dbgsym.ddeb debug symbol packages alongside the
 #                       .deb packages (default: 0, disabled).
@@ -89,16 +88,15 @@ Arguments:
                     dirty.
 
 Environment:
-  INCREMENTAL_BUILD  Set to 0/false/no/off to force debian/rules clean's
-                      rm -rf debian/build debian/stamps even when prior
-                      build state exists, so the next build is guaranteed
-                      clean (default: 1, incremental — kbuild only
-                      recompiles files that actually changed). Falls back
-                      to a full clean automatically on the first build for
-                      a given SOURCE_DIR. Do not leave enabled across a
-                      change to debian/control-level Build-Depends, or
-                      when a guaranteed-clean build is needed (e.g. before
-                      a release/CI run).
+  INCREMENTAL_BUILD  Set to 1/true/yes/on to enable incremental builds
+                      where kbuild only recompiles files that actually
+                      changed (default: 0, clean builds). Clean builds force
+                      debian/rules clean's rm -rf debian/build debian/stamps
+                      even when prior build state exists, ensuring a
+                      guaranteed-clean build. This is the safe default for
+                      CI and release workflows. Incremental builds are useful
+                      for local development but should not be left enabled
+                      across changes to debian/control-level Build-Depends.
   DBGSYM             Set to 1/true/yes/on to also build the unstripped
                       -dbgsym.ddeb debug symbol packages alongside the
                       .deb packages (default: 0, disabled).
@@ -136,7 +134,7 @@ FLAVOR="${3:-qcom}"
 JOBS="${4:-8}"
 VERSION_SUFFIX="${5:-}"
 SKIP_BUILD_DEP="${SKIP_BUILD_DEP:-0}"
-INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}"
+INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-0}"
 DBGSYM="${DBGSYM:-0}"
 SKIP_INDEP="${SKIP_INDEP:-0}"
 
