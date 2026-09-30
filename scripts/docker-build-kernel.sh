@@ -36,10 +36,10 @@
 #                    as root.
 #   DEBEMAIL        Email for changelog entries (default: build-kernel-deb@localhost)
 #   DEBFULLNAME     Full name for changelog entries (default: build-kernel-deb.sh)
-#   INCREMENTAL_BUILD  Set to 0/false/no/off to force a full debian/rules
-#                    clean even when prior build state exists (default: 1,
-#                    incremental). See build-kernel-deb.sh for details and
-#                    caveats.
+#   INCREMENTAL_BUILD  Set to 1/true/yes/on to enable incremental builds that
+#                    reuse prior build state (default: 0, clean build forcing a
+#                    full debian/rules clean). See build-kernel-deb.sh for
+#                    details and caveats.
 #   DBGSYM          Set to 1/true/yes/on to also build the unstripped
 #                    -dbgsym.ddeb debug symbol packages alongside the .deb
 #                    packages (default: 0, disabled). See build-kernel-deb.sh
@@ -86,10 +86,10 @@ Environment:
                    as root.
   DEBEMAIL        Email for changelog entries (default: build-kernel-deb@localhost)
   DEBFULLNAME     Full name for changelog entries (default: build-kernel-deb.sh)
-  INCREMENTAL_BUILD  Set to 0/false/no/off to force a full debian/rules
-                   clean even when prior build state exists (default: 1,
-                   incremental). See build-kernel-deb.sh for details and
-                   caveats.
+  INCREMENTAL_BUILD  Set to 1/true/yes/on to enable incremental builds that
+                   reuse prior build state (default: 0, clean build forcing a
+                   full debian/rules clean). See build-kernel-deb.sh for
+                   details and caveats.
   DBGSYM          Set to 1/true/yes/on to also build the unstripped
                    -dbgsym.ddeb debug symbol packages alongside the .deb
                    packages (default: 0, disabled). See build-kernel-deb.sh
@@ -160,7 +160,7 @@ log "  Flavour         : ${FLAVOR}"
 log "  Jobs            : ${JOBS}"
 log "  Docker image    : ${IMAGE}"
 log "  Output dir      : ${OUTPUT_DIR}"
-if is_truthy "${INCREMENTAL_BUILD:-1}"; then
+if is_truthy "${INCREMENTAL_BUILD:-0}"; then
   log "  Incremental     : enabled"
 else
   log "  Incremental     : disabled"
@@ -229,7 +229,7 @@ exec docker run "${docker_flags[@]}" \
   -e OUTPUT_DIR="${OUTPUT_DIR}" \
   -e DEBEMAIL="${DEBEMAIL:-}" \
   -e DEBFULLNAME="${DEBFULLNAME:-}" \
-  -e INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-1}" \
+  -e INCREMENTAL_BUILD="${INCREMENTAL_BUILD:-0}" \
   -e DBGSYM="${DBGSYM:-0}" \
   "${IMAGE}" \
   bash "${SCRIPT_ABS}/build-kernel-deb.sh" "${SOURCE_DIR_ABS}" "${ARCH}" "${FLAVOR}" "${JOBS}" "${VERSION_SUFFIX}"
