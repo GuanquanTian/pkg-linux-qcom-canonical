@@ -65,11 +65,17 @@ jobs:
           set -euo pipefail
           bash ./scripts/resolve-distro-validation-context.sh
 
+  # On target testing resources are limited, so the dispatch waits until a
+  # required reviewer of the On Target Validation environment approves the
+  # run, for every PR whoever opened it. GitHub's fork approval cannot do
+  # this: it only holds runs from non-org members. The kernel build is not
+  # gated.
   request-validation:
     name: "Request distro image validation"
     needs: workflow-context
     if: ${{ needs.workflow-context.outputs.should-validate == 'true' }}
     runs-on: [self-hosted, lecore-prd-u2404-arm64-xlrg-od-ephem]
+    environment: On Target Validation
     permissions:
       checks: write
       contents: read

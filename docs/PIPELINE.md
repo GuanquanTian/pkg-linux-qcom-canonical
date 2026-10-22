@@ -73,10 +73,13 @@ and uploads nothing.
 
 After the pre-merge kernel workflow completes, `premerge-distro-validation.yml`
 runs from the trusted `main` branch through `workflow_run`. It resolves the PR
-from the triggering kernel run and dispatches a validated request to the internal
-qcom-distro-images repository. The internal receiver calls its local reusable
-workflow and builds the fixed Resolute IoT server and desktop matrix using only
-the Canonical kernel packages from that exact premerge build.
+from the triggering kernel run and, once a required reviewer of the
+`On Target Validation` environment approves the run, dispatches a validated
+request to the internal qcom-distro-images repository. Every PR waits for that
+approval, whoever opened it; the kernel build itself is not gated. The internal
+receiver calls its local reusable workflow and builds the fixed Resolute IoT
+server and desktop matrix using only the Canonical kernel packages from that
+exact premerge build.
 
 The two image tarballs are uploaded alongside the kernel packages under the same
 `pkg/premerge/ubuntu-qcom-kernel/<run-id>-<attempt>/` directory. A
