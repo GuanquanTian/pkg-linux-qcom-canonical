@@ -65,6 +65,36 @@ jobs:
           set -euo pipefail
           bash ./scripts/resolve-distro-validation-context.sh
 
+  # While request-validation waits for approval, nothing else reports the
+  # context, so the pull request would show no check at all and give no sign
+  # it is waiting. Post a pending status first; request-validation replaces
+  # it once approved.
+  report-awaiting-approval:
+    name: "Report distro image validation awaiting approval"
+    needs: workflow-context
+    if: ${{ needs.workflow-context.outputs.should-validate == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Checkout status helper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Report awaiting approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ needs.workflow-context.outputs.head-sha }}
+          STATE: pending
+          DESCRIPTION: "Waiting for approval to build images and test on target"
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/report-distro-validation-status.sh
+
   # On target testing resources are limited, so the dispatch waits until a
   # required reviewer of the On Target Validation environment approves the
   # run, for every PR whoever opened it. GitHub's fork approval cannot do
@@ -72,7 +102,7 @@ jobs:
   # gated.
   request-validation:
     name: "Request distro image validation"
-    needs: workflow-context
+    needs: [workflow-context, report-awaiting-approval]
     if: ${{ needs.workflow-context.outputs.should-validate == 'true' }}
     runs-on: [self-hosted, lecore-prd-u2404-arm64-xlrg-od-ephem]
     environment: On Target Validation
@@ -137,6 +167,37 @@ jobs:
         run: |
           set -euo pipefail
           bash ./scripts/send-distro-validation-request.sh
+
+  # A rejected deployment fails request-validation, which never reaches its
+  # own status step, so the pending status above would be left claiming the
+  # run is still waiting. Replace it with a failure naming the reason.
+  report-not-approved:
+    name: "Report distro image validation not approved"
+    needs: [workflow-context, request-validation]
+    if: >-
+      ${{ always() && needs.workflow-context.outputs.should-validate == 'true' &&
+      needs.request-validation.result == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Checkout status helper
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Report not approved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT_SHA: ${{ needs.workflow-context.outputs.head-sha }}
+          STATE: failure
+          DESCRIPTION: "Not approved to build images and test on target"
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          bash ./scripts/report-distro-validation-status.sh
 
   kernel-failure:
     name: "Report kernel validation failure"
